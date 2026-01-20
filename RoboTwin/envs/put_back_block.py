@@ -69,6 +69,12 @@ class put_back_block(Base_Task):
         )
         
         self.bell_clicked = False
+        
+        # 三阶段成功标志
+        self.stage1_success = False  # A -> B
+        self.stage2_success = False  # 按铃铛
+        self.stage3_success = False  # B -> A
+        
         flushed_print("安全工作区初始化完成。")
 
     def play_once(self):
@@ -100,6 +106,14 @@ class put_back_block(Base_Task):
         # 垂直抬起
         self.move(self.move_by_displacement(arm_L, z=0.10))
         
+        # 检查阶段1是否成功（方块在B点附近）
+        block_p = self.block.get_pose().p
+        b_p = self.pos_B_pose.p
+        dist_to_b = np.linalg.norm(block_p[:2] - b_p[:2])
+        if dist_to_b < 0.05:
+            self.stage1_success = True
+            flushed_print(f"阶段1成功: 方块已放置到B点 (距离={dist_to_b:.3f})")
+        
         # 回原点
         self.move(self.back_to_origin(arm_L))
         
@@ -118,6 +132,8 @@ class put_back_block(Base_Task):
             self.move(self.close_gripper(arm_R))
             self.move(self.move_by_displacement(arm_R, z=-0.07))
             self.bell_clicked = True
+            self.stage2_success = True
+            flushed_print("阶段2成功: 铃铛已被点击")
             self.move(self.move_by_displacement(arm_R, z=0.07))
             self.move(self.back_to_origin(arm_R))
         else:
@@ -159,6 +175,14 @@ class put_back_block(Base_Task):
         # 垂直抬起
         self.move(self.move_by_displacement(arm_L, z=0.10))
         
+        # 检查阶段3是否成功（方块回到A点附近）
+        block_p = self.block.get_pose().p
+        init_p = self.pos_A_init_pose.p
+        dist_to_a = np.linalg.norm(block_p[:2] - init_p[:2])
+        if dist_to_a < 0.05:
+            self.stage3_success = True
+            flushed_print(f"阶段3成功: 方块已放回A点 (距离={dist_to_a:.3f})")
+        
         # 回原点
         self.move(self.back_to_origin(arm_L))
 
@@ -169,13 +193,27 @@ class put_back_block(Base_Task):
         return self.info
 
     def check_success(self):
+        flushed_print("\n========== 成功检查 ==========")
+        
+        # 阶段1: A -> B
+        flushed_print(f"阶段1 (A->B): {'✓ 成功' if self.stage1_success else '✗ 失败'}")
+        
+        # 阶段2: 按铃铛
+        flushed_print(f"阶段2 (按铃铛): {'✓ 成功' if self.stage2_success else '✗ 失败'}")
+        
+        # 阶段3: B -> A
         block_p = self.block.get_pose().p
         init_p = self.pos_A_init_pose.p
         dist = np.linalg.norm(block_p[:2] - init_p[:2])
-        # 成功条件: 方块回到 A 点且铃铛已被点过
-        success = dist < 0.05 and self.bell_clicked
-        flushed_print(f"成功检查: 距离={dist:.3f}, 铃铛点击={self.bell_clicked} -> {success}")
-        return success
+        stage3_ok = dist < 0.05
+        flushed_print(f"阶段3 (B->A): {'✓ 成功' if stage3_ok else '✗ 失败'} (当前距离={dist:.3f})")
+        
+        # 总体成功条件
+        overall_success = self.stage1_success and self.stage2_success and stage3_ok
+        flushed_print(f"\n总体结果: {'✓ 全部成功' if overall_success else '✗ 存在失败'}")
+        flushed_print("============================\n")
+        
+        return overall_success
 
 if __name__ == "__main__":
     pass
