@@ -53,14 +53,14 @@ def main():
     except Exception as e:
         print(f"Error during play_once: {e}")
     
-    print("Saving video...")
-    try:
-        env.save_traj_data(0)
-        env.merge_pkl_to_hdf5_video()
-        print(f"Video saved. Check debug_data/put_back_block/demo_debug/episode0.hdf5 or similar.")
-    except Exception as e:
-        print(f"Error saving video: {e}")
-
+    # Check if task was successful
+    print("\nChecking success...")
+    success = env.check_success()
+    if success:
+        print("✓ Task completed successfully!")
+    else:
+        print("✗ Task failed.")
+    
     env.close_env()
     print("Done.")
 
