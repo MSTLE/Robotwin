@@ -57,6 +57,22 @@ class put_back_block(Base_Task):
         # 2. 目标位置 B (中央后方)
         self.pos_B_pose = sapien.Pose(self.config_B["pos"])
         
+        # 在 B 点创建一个蓝色正方形标记 (visual marker)
+        # B 点坐标: [-0.1, 0.0, 0.77]
+        # 我们创建一个很薄的 box 放在桌面上 (z slightly lower than 0.77 but visible on table)
+        marker_pos = self.config_B["pos"].copy()
+        marker_pos[2] = 0.741 # 桌面上方一点点
+        
+        # 使用 create_visual_box 创建纯视觉对象
+        from .utils.create_actor import create_visual_box
+        self.marker_B = create_visual_box(
+            scene=self.scene,
+            pose=sapien.Pose(marker_pos),
+            half_size=[0.04, 0.04, 0.001], # 8cm x 8cm 正方形
+            color=[0, 0, 1], # 蓝色
+            name="marker_B",
+        )
+        
         # 3. 铃铛 (右后方)
         bell_pos = sapien.Pose(self.config_bell["pos"], self.config_bell["quat"])
         self.bell = create_actor(
