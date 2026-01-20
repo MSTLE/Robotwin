@@ -17,25 +17,25 @@ class put_back_block(Base_Task):
     def load_actors(self):
         flushed_print("正在加载资产...")
         
-        # === 位置配置区 (你可以直接修改这里的数值) ===
-        # A 点随机范围 (左侧抓取点)
+        # === 位置配置区 (可以修改这里的数值) ===
+        # A 点随机范围
         self.config_A = {
             "xlim": [-0.4, -0.15],
             "ylim": [-0.2, -0.15],
             "z": 0.77
         }
-        # B 点固定坐标 (中央中转点)
+        # B 点固定坐标
         self.config_B = {
             "pos": [-0.1, 0.0, 0.77]
         }
-        # 铃铛/按钮固定坐标 (右侧按压点)
+        # 铃铛固定坐标
         self.config_bell = {
             "pos": [0.3, 0.0, 0.77],
-            "quat": [0.707, 0.707, 0, 0] # 指向前方
+            "quat": [0.707, 0.707, 0, 0] # 指向上方
         }
         # ========================================
 
-        # 1. 初始位置 A (左后方)
+        # 1. 初始位置 A 
         self.pos_A_init_pose = rand_pose(
             xlim=self.config_A["xlim"],
             ylim=self.config_A["ylim"],
@@ -59,7 +59,7 @@ class put_back_block(Base_Task):
         
         # 在 B 点创建一个蓝色正方形标记 (visual marker)
         # B 点坐标: [-0.1, 0.0, 0.77]
-        # 我们创建一个很薄的 box 放在桌面上 (z slightly lower than 0.77 but visible on table)
+        # 创建一个很薄的 box 放在桌面上
         marker_pos = self.config_B["pos"].copy()
         marker_pos[2] = 0.741 # 桌面上方一点点
         
@@ -73,7 +73,7 @@ class put_back_block(Base_Task):
             name="marker_B",
         )
         
-        # 3. 铃铛 (右后方)
+        # 3. 铃铛
         bell_pos = sapien.Pose(self.config_bell["pos"], self.config_bell["quat"])
         self.bell = create_actor(
             scene=self,
