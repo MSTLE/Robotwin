@@ -13,6 +13,14 @@ class put_back_block(Base_Task):
 
     def setup_demo(self, **kwags):
         super()._init_task_env_(**kwags)
+        # Populate episode info for instruction generation
+        self.info["info"] = {
+            "A": "red block",
+            "B": "blue square",
+            "C": "bell",
+            "a": "left",
+            "b": "right"
+        }
 
     def load_actors(self):
         flushed_print("正在加载资产...")
