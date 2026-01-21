@@ -1,0 +1,34 @@
+{
+    "full_description": "use the left arm to pick up the block from point A and place it at point B, then use the right arm to press the bell, finally use the left arm to pick up the block from point B and place it back at point A.",
+    "schema": "{A} notifies the block, {B} notifies the intermediate point B, {C} notifies the bell, {a} notifies the left arm, {b} notifies the right arm",
+    "preference": "num of words should not exceed 15. Degree of detail avg is six.",
+    "seen": [
+        "Pick {A} from A, place at {B}, press {C}, then put back to A.",
+        "Use {a} to move {A} to {B}, press {C} with {b}, then return {A} to A.",
+        "Grab {A}, place at {B}, hit {C}, then move {A} back to A.",
+        "Move {A} to {B}, ring {C}, and put {A} back.",
+        "Place {A} at {B}, press {C}, then return {A} to start.",
+        "Use {a} to pick {A}, place at {B}, use {b} to press {C}, then return {A}.",
+        "Transfer {A} to {B}, click {C}, then restore {A} to A.",
+        "Pick {A}, drop at {B}, hit {C}, then place {A} back at A.",
+        "Move block to center, press bell, then move block back.",
+        "Use {a} for block transfer and {b} for bell pressing.",
+        "Place {A} on {B}, activate {C}, then return {A}.",
+        "Shift {A} to {B}, ring {C}, then shift {A} back.",
+        "Pick {A}, put at {B}, utilize {b} to press {C}, then return {A}.",
+        "Move {A} to intermediate {B}, press {C}, then bring {A} home.",
+        "Execute transfer to {B}, bell press, and return to A.",
+        "Use {a} to move {A} to {B}, then return after pressing {C}.",
+        "Place object at {B}, signal with {C}, then return object.",
+        "Cycle {A} from A to {B} and back, pressing {C} in between.",
+        "Use left arm for block, right arm for bell.",
+        "Pick up {A}, set at {B}, press {C}, pick up {A}, set at A."
+    ],
+    "unseen": [
+        "Move {A} to {B}, press {C}, move back to A.",
+        "Place {A} at {B}, hit {C}, return {A}.",
+        "Transfer {A} to {B}, ring {C}, restore {A}.",
+        "Use {a} to move {A}, {b} to press {C}.",
+        "Block to {B}, bell press, block back to A."
+    ]
+}
