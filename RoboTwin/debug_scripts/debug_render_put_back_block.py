@@ -4,13 +4,16 @@ import yaml
 import numpy as np
 
 # Add project root to path
-sys.path.append(os.getcwd())
+# Assuming this script is in RoboTwin/debug_scripts/
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+sys.path.append(project_root)
 
 from envs.put_back_block import put_back_block
 
 def main():
     # 1. Load config
-    robot_path = os.path.abspath("assets/embodiments/aloha-agilex")
+    robot_path = os.path.join(project_root, "assets/embodiments/aloha-agilex")
     config_path = os.path.join(robot_path, "config.yml")
     with open(config_path, "r") as f:
         robot_config = yaml.safe_load(f)
