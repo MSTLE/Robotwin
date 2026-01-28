@@ -2,6 +2,7 @@ import sys
 import os
 import yaml
 import numpy as np
+import argparse
 
 # Add project root to path and change working directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -15,6 +16,16 @@ os.chdir(project_root)
 from envs.flip_cup_find_block import flip_cup_find_block
 
 def main():
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='Debug render flip_cup_find_block environment')
+    parser.add_argument('--episode', type=int, default=0, help='Episode number (default: 0)')
+    parser.add_argument('--random', action='store_true', help='Use random block generation mode')
+    args = parser.parse_args()
+    
+    print(f"=== 测试配置 ===")
+    print(f"Episode 编号: {args.episode}")
+    print(f"生成模式: {'随机' if args.random else '顺序'}")
+    print(f"================\n")
     # 1. Load config
     robot_path = os.path.join(project_root, "assets/embodiments/aloha-agilex")
     config_path = os.path.join(robot_path, "config.yml")
@@ -45,13 +56,16 @@ def main():
              "wrist_camera_type": "D435",
              "collect_wrist_camera": True
         },
-        "render_freq": 1 
+        "render_freq": 1,
+        "random_block_order": args.random  # 使用命令行参数
     }
 
     print("Initializing environment...")
     env = flip_cup_find_block()
     # setup_demo will initialize the viewer if render_freq > 0
-    env.setup_demo(now_ep_num=0, seed=0, **debug_config)
+    # 随机模式使用随机整数作为seed，顺序模式使用0(可复现)
+    seed_value = np.random.randint(0, 100000) if args.random else 0
+    env.setup_demo(now_ep_num=args.episode, seed=seed_value, **debug_config)
     
     print("Running task sequence...")
     try:
