@@ -67,6 +67,13 @@ def main():
     else:
         print("✗ Task failed.")
     
+    # 保持窗口打开,直到用户按下回车键
+    print("\n" + "="*50)
+    print("场景已加载完成!")
+    print("按 Enter 键关闭窗口...")
+    print("="*50)
+    input()  # 等待用户按下回车键
+    
     env.close_env()
     print("Done.")
 
