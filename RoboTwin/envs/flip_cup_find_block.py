@@ -79,41 +79,41 @@ class flip_cup_find_block(Base_Task):
         # 在三个物块上方创建三个杯子 (使用 021_cup, model_id=3)
         # 杯子需要放在物块上方,z坐标需要加上物块高度(0.04)和杯子底部到中心的距离
         
-        # # 杯子1: 在物块1上方
-        # self.cup1 = create_actor(
-        #     scene=self,
-        #     pose=sapien.Pose([0.0, 0.0, 0.82], [0.707, -0.707, 0, 0]),  # 桌面0.74 + 杯子中心偏移0.08
-        #     modelname="021_cup",
-        #     model_id=3,
-        #     convex=False,  # 非凸包,允许夹爪伸进杯子内部
-        #     is_static=False,  # 动态物体,可以被机器人夹起
-        # )
-        # self.cup1.set_name("cup1")
-        # self.cup1.set_mass(0.1)  # 设置杯子质量为100克
+        # 杯子1: 在物块1上方
+        self.cup1 = create_actor(
+            scene=self,
+            pose=sapien.Pose([0.0, 0.0, 0.82], [0.707, -0.707, 0, 0]),  # 桌面0.74 + 杯子中心偏移0.08
+            modelname="021_cup",
+            model_id=3,
+            convex=False,  # 非凸包,允许夹爪伸进杯子内部
+            is_static=False,  # 动态物体,可以被机器人夹起
+        )
+        self.cup1.set_name("cup1")
+        self.cup1.set_mass(0.1)  # 设置杯子质量为100克
         
-        # # 杯子2: 在物块2上方
-        # self.cup2 = create_actor(
-        #     scene=self,
-        #     pose=sapien.Pose([0.2, 0.0, 0.82], [0.707, -0.707, 0, 0]),  # 桌面0.74 + 杯子中心偏移0.08
-        #     modelname="021_cup",
-        #     model_id=3,
-        #     convex=False,  # 非凸包,允许夹爪伸进杯子内部
-        #     is_static=False,  # 动态物体,可以被机器人夹起
-        # )
-        # self.cup2.set_name("cup2")
-        # self.cup2.set_mass(0.1)  # 设置杯子质量为100克
+        # 杯子2: 在物块2上方
+        self.cup2 = create_actor(
+            scene=self,
+            pose=sapien.Pose([0.2, 0.0, 0.82], [0.707, -0.707, 0, 0]),  # 桌面0.74 + 杯子中心偏移0.08
+            modelname="021_cup",
+            model_id=3,
+            convex=False,  # 非凸包,允许夹爪伸进杯子内部
+            is_static=False,  # 动态物体,可以被机器人夹起
+        )
+        self.cup2.set_name("cup2")
+        self.cup2.set_mass(0.1)  # 设置杯子质量为100克
         
-        # # 杯子3: 在物块3上方
-        # self.cup3 = create_actor(
-        #     scene=self,
-        #     pose=sapien.Pose([-0.2, 0.0, 0.82], [0.707, -0.707, 0, 0]),  # 桌面0.74 + 杯子中心偏离0.08
-        #     modelname="021_cup",
-        #     model_id=3,
-        #     convex=False,  # 非凸包,允许夹爪伸进杯子内部
-        #     is_static=False,  # 动态物体,可以被机器人夹起
-        # )
-        # self.cup3.set_name("cup3")
-        # self.cup3.set_mass(0.1)  # 设置杯子质量为100克
+        # 杯子3: 在物块3上方
+        self.cup3 = create_actor(
+            scene=self,
+            pose=sapien.Pose([-0.2, 0.0, 0.82], [0.707, -0.707, 0, 0]),  # 桌面0.74 + 杯子中心偏离0.08
+            modelname="021_cup",
+            model_id=3,
+            convex=False,  # 非凸包,允许夹爪伸进杯子内部
+            is_static=False,  # 动态物体,可以被机器人夹起
+        )
+        self.cup3.set_name("cup3")
+        self.cup3.set_mass(0.1)  # 设置杯子质量为100克
         
         flushed_print("资产加载完成（机器人、桌子、三个物块和三个杯子）。")
 
