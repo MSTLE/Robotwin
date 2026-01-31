@@ -63,22 +63,21 @@ class flip_cup_find_block(Base_Task):
         block_size = 0.0125
         block_z = pad_surface_z + block_size
         block_positions = [
-            ([0.0, 0.0, block_z], "block1"),
             ([0.2, 0.0, block_z], "block2"),
             ([-0.2, 0.0, block_z], "block3")
         ]
         
         # 根据配置决定生成顺序
         if self.random_block_order:
-            # 随机选择生成物块1、2或3中的一个
-            block_index = np.random.randint(0, 3)
+            # 随机选择生成物块2或3中的一个
+            block_index = np.random.randint(0, 2)
             selected_indices = [block_index]
-            flushed_print(f"随机生成模式: 随机选择物块 {block_index + 1} (索引 {block_index})")
+            flushed_print(f"随机生成模式: 随机选择物块 (索引 {block_index})")
         else:
-            # 按顺序循环生成单个物块：ep0→block1, ep1→block2, ep2→block3, ep3→block1...
-            block_index = self.ep_num % 3
+            # 按顺序循环生成单个物块：ep0→block2, ep1→block3, ep2→block2...
+            block_index = self.ep_num % 2
             selected_indices = [block_index]
-            flushed_print(f"顺序生成模式: Episode {self.ep_num} → 生成物块 {block_index + 1} (索引 {block_index})")
+            flushed_print(f"顺序生成模式: Episode {self.ep_num} → 选择索引 {block_index}")
         
         # 记录实际生成的物块信息
         self.generated_blocks = []
@@ -131,10 +130,7 @@ class flip_cup_find_block(Base_Task):
         # 我们把高度调整得低一些，让它更接近垫子表面
         fluted_block_z = pad_surface_z + 0.05
         
-        # 创建三个缩小的 Fluted-Block
-        self.fluted_block1 = create_shrunk_fluted_block(self, sapien.Pose([0.0, 0.0, fluted_block_z], [0.707, -0.707, 0, 0]), "fluted_block1")
-        self.fluted_block1.set_mass(0.1)
-        
+        # 创建两个缩小的 Fluted-Block (原 block1 位置的已删除)
         self.fluted_block2 = create_shrunk_fluted_block(self, sapien.Pose([0.2, 0.0, fluted_block_z], [0.707, -0.707, 0, 0]), "fluted_block2")
         self.fluted_block2.set_mass(0.1)
         
@@ -150,8 +146,8 @@ class flip_cup_find_block(Base_Task):
             restitution=0.0,
         )
         
-        # 为三个 Fluted-Block 设置高摩擦力
-        for block in [self.fluted_block1, self.fluted_block2, self.fluted_block3]:
+        # 为两个 Fluted-Block 设置高摩擦力
+        for block in [self.fluted_block2, self.fluted_block3]:
             for comp in block.actor.get_components():
                 if isinstance(comp, sapien.physx.PhysxRigidBaseComponent):
                     for shape in comp.get_collision_shapes():
@@ -223,6 +219,51 @@ class flip_cup_find_block(Base_Task):
         # 10. 复位手臂
         flushed_print("复位手臂...")
         self.move(self.back_to_origin(arm_L))
+        
+        arm_R = ArmTag("right")
+        # 11. 抬起右臂
+        flushed_print("抬起右臂...")
+        self.move(self.move_by_displacement(arm_tag=arm_R, z=0.1))
+        
+        # 12. 移动到第二个 Fluted-Block 上方
+        flushed_print("移动到第二个 Fluted-Block 上方...")
+        curr_pose_R = self.robot.get_right_ee_pose()
+        block2_pos = self.fluted_block2.get_pose().p
+        
+        dx = block2_pos[0] - curr_pose_R[0]
+        dy = block2_pos[1] - curr_pose_R[1]
+        dz = (block2_pos[2] + 0.15) - curr_pose_R[2]
+        
+        # 使用相同的 Top-down 姿态
+        self.move(self.move_by_displacement(arm_tag=arm_R, x=dx, y=dy, z=dz, quat=top_down_quat))
+        
+        # 13. 向下移动
+        flushed_print("向下移动...")
+        self.move(self.move_by_displacement(arm_tag=arm_R, z=-0.014))
+        
+        # 14. 闭合夹爪
+        flushed_print("闭合夹爪...")
+        self.move((arm_R, [Action(arm_R, "close", target_gripper_pos=0.7)]))
+        
+        # 15. 向上平移
+        flushed_print("向上平移...")
+        self.move(self.move_by_displacement(arm_tag=arm_R, z=0.05))
+        
+        # 16. 向下平移放回
+        flushed_print("向下平移放回...")
+        self.move(self.move_by_displacement(arm_tag=arm_R, z=-0.05))
+        
+        # 17. 松开夹爪
+        flushed_print("松开夹爪...")
+        self.move((arm_R, [Action(arm_R, "open", target_gripper_pos=1)]))
+        
+        # 18. 抬起手臂离开
+        flushed_print("抬起手臂离开...")
+        self.move(self.move_by_displacement(arm_tag=arm_R, z=0.08))
+        
+        # 19. 复位右臂
+        flushed_print("复位右臂...")
+        self.move(self.back_to_origin(arm_R))
         
         
         flushed_print("环境演示完成。")
