@@ -139,12 +139,87 @@ class flip_cup_find_block(Base_Task):
         self.cup3.set_mass(0.1)  # 设置杯子质量为100克
         
         flushed_print("资产加载完成（机器人、桌子、垫子、三个物块位置和三个杯子）。")
+        
+        # 4. 增加摩擦力设置，防止杯子滑落
+        high_friction_material = self.scene.create_physical_material(
+            static_friction=5.0,
+            dynamic_friction=5.0,
+            restitution=0.0,
+        )
+        
+        # 为三个杯子设置高摩擦力
+        for cup in [self.cup1, self.cup2, self.cup3]:
+            for comp in cup.actor.get_components():
+                if isinstance(comp, sapien.physx.PhysxRigidBaseComponent):
+                    for shape in comp.get_collision_shapes():
+                        shape.set_physical_material(high_friction_material)
+        
+        # 为机器人的夹爪设置高摩擦力
+        for link in self.robot.left_entity.get_links():
+            if link.get_name() in self.robot.gripper_name:
+                for shape in link.get_collision_shapes():
+                    shape.set_physical_material(high_friction_material)
+        for link in self.robot.right_entity.get_links():
+            if link.get_name() in self.robot.gripper_name:
+                for shape in link.get_collision_shapes():
+                    shape.set_physical_material(high_friction_material)
+        
+        flushed_print("物理材质更新完成（已增加杯子和夹爪的摩擦力）。")
 
     def play_once(self):
         flushed_print("执行基本的环境演示...")
-        # 仅执行一个简单的动作以验证环境运行正常
         arm_L = ArmTag("left")
-        self.move(self.back_to_origin(arm_L))
+        
+        # 1. 抬起左臂一点 (使用 displacement)
+        flushed_print("抬起左臂...")
+        self.move(self.move_by_displacement(arm_tag=arm_L, z=0.1))
+        
+        # 2. 获取当前位置并计算到第三个杯子上方的位移
+        flushed_print("移动到第三个杯子上方...")
+        curr_pose = self.robot.get_left_ee_pose()
+        cup3_pos = self.cup3.get_pose().p
+        
+        # 目标位置在杯子中心上方 0.15m，并增加一个 Y 轴偏移
+        y_offset = -0.15  # 向操作者方向偏移一点
+        dx = cup3_pos[0] - curr_pose[0]
+        dy = (cup3_pos[1] + y_offset) - curr_pose[1]
+        dz = (cup3_pos[2] + 0.15) - curr_pose[2]
+        
+        # 使用 displacement 移动到目标位置
+        self.move(self.move_by_displacement(arm_tag=arm_L, x=dx, y=dy, z=dz))
+        
+        # 3. 向下移动 (使用 displacement)
+        flushed_print("向下移动...")
+        self.move(self.move_by_displacement(arm_tag=arm_L, z=-0.17))
+        
+        # 4. 向 Y 正方向移动一点点 (使用 displacement)
+        flushed_print("向 Y 正方向移动...")
+        self.move(self.move_by_displacement(arm_tag=arm_L, y=0.025))
+        
+        # 5. 闭合夹爪 (设置位置为 0.8，避免太紧导致杯子飞出)
+        flushed_print("闭合夹爪...")
+        self.move((arm_L, [Action(arm_L, "close", target_gripper_pos=0.7)]))
+        
+        # 6. 向上平移 (使用 displacement)
+        flushed_print("向上平移...")
+        self.move(self.move_by_displacement(arm_tag=arm_L, z=0.15))
+        
+        # 6.5 对准中心 (由于之前抓取时有 Y 偏移，放回时需要补偿回来以对准物块)
+        flushed_print("对准放回中心...")
+        self.move(self.move_by_displacement(arm_tag=arm_L, y=0.025))
+        
+        # 7. 向下平移放回 (使用 displacement)
+        flushed_print("向下平移放回...")
+        self.move(self.move_by_displacement(arm_tag=arm_L, z=-0.15))
+        
+        # 8. 松开夹爪
+        flushed_print("松开夹爪...")
+        self.move((arm_L, [Action(arm_L, "open")]))
+        
+        # 9. 抬起手臂离开
+        flushed_print("抬起手臂离开...")
+        self.move(self.move_by_displacement(arm_tag=arm_L, z=0.2))
+        
         flushed_print("环境演示完成。")
         return self.info
 
