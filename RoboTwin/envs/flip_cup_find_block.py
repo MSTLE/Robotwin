@@ -25,7 +25,7 @@ class flip_cup_find_block(Base_Task):
         self.info["info"] = {
             "robot": "aloha-agilex",
             "table": "desk",
-            "task": "flip_cup_find_block",
+            "task": "flip_block_find_block",
             "random_block_order": self.random_block_order
         }
         
@@ -49,7 +49,7 @@ class flip_cup_find_block(Base_Task):
         self.pad = create_box(
             scene=self,
             pose=sapien.Pose([0.0, 0.0, pad_z]),
-            half_size=(0.25, 0.04, pad_half_thickness),  # 设置垫子大小覆盖物块和杯子
+            half_size=(0.25, 0.04, pad_half_thickness),  # 设置垫子大小覆盖物块和 Fluted-Block
             color=(45/255, 173/255, 232/255),  # 蓝色垫子
             name="pad",
             is_static=True,
@@ -126,33 +126,33 @@ class flip_cup_find_block(Base_Task):
             # 模拟 create_actor 返回的 Actor 对象包装
             return Actor(actor_entity, {"scale": target_scale.tolist()})
 
-        # 缩小后的模型高度也会降低，相应调整 cup_z
+        # 缩小后的模型高度也会降低，相应调整 fluted_block_z
         # 原高度约为 0.16 * 0.4 = 0.064, 缩小 0.7 倍后约为 0.045
         # 我们把高度调整得低一些，让它更接近垫子表面
-        cup_z = pad_surface_z + 0.05
+        fluted_block_z = pad_surface_z + 0.05
         
         # 创建三个缩小的 Fluted-Block
-        self.cup1 = create_shrunk_fluted_block(self, sapien.Pose([0.0, 0.0, cup_z], [0.707, -0.707, 0, 0]), "cup1")
-        self.cup1.set_mass(0.1)
+        self.fluted_block1 = create_shrunk_fluted_block(self, sapien.Pose([0.0, 0.0, fluted_block_z], [0.707, -0.707, 0, 0]), "fluted_block1")
+        self.fluted_block1.set_mass(0.1)
         
-        self.cup2 = create_shrunk_fluted_block(self, sapien.Pose([0.2, 0.0, cup_z], [0.707, -0.707, 0, 0]), "cup2")
-        self.cup2.set_mass(0.1)
+        self.fluted_block2 = create_shrunk_fluted_block(self, sapien.Pose([0.2, 0.0, fluted_block_z], [0.707, -0.707, 0, 0]), "fluted_block2")
+        self.fluted_block2.set_mass(0.1)
         
-        self.cup3 = create_shrunk_fluted_block(self, sapien.Pose([-0.2, 0.0, cup_z], [0.707, -0.707, 0, 0]), "cup3")
-        self.cup3.set_mass(0.1)
+        self.fluted_block3 = create_shrunk_fluted_block(self, sapien.Pose([-0.2, 0.0, fluted_block_z], [0.707, -0.707, 0, 0]), "fluted_block3")
+        self.fluted_block3.set_mass(0.1)
         
-        flushed_print("资产加载完成（已加载并缩小物体模型）。")
+        flushed_print("资产加载完成（已加载并缩小 Fluted-Block 模型）。")
         
-        # 4. 增加摩擦力设置，防止杯子滑落
+        # 4. 增加摩擦力设置，防止 Fluted-Block 滑落
         high_friction_material = self.scene.create_physical_material(
             static_friction=5.0,
             dynamic_friction=5.0,
             restitution=0.0,
         )
         
-        # 为三个杯子设置高摩擦力
-        for cup in [self.cup1, self.cup2, self.cup3]:
-            for comp in cup.actor.get_components():
+        # 为三个 Fluted-Block 设置高摩擦力
+        for block in [self.fluted_block1, self.fluted_block2, self.fluted_block3]:
+            for comp in block.actor.get_components():
                 if isinstance(comp, sapien.physx.PhysxRigidBaseComponent):
                     for shape in comp.get_collision_shapes():
                         shape.set_physical_material(high_friction_material)
@@ -167,7 +167,7 @@ class flip_cup_find_block(Base_Task):
                 for shape in link.get_collision_shapes():
                     shape.set_physical_material(high_friction_material)
         
-        flushed_print("物理材质更新完成（已增加杯子和夹爪的摩擦力）。")
+        flushed_print("物理材质更新完成（已增加 Fluted-Block 和夹爪的摩擦力）。")
 
     def play_once(self):
         flushed_print("执行基本的环境演示...")
@@ -177,16 +177,16 @@ class flip_cup_find_block(Base_Task):
         flushed_print("抬起左臂...")
         self.move(self.move_by_displacement(arm_tag=arm_L, z=0.1))
         
-        # 2. 获取当前位置并计算到第三个杯子上方的位移
-        flushed_print("移动到第三个杯子上方...")
+        # 2. 获取当前位置并计算到第三个 Fluted-Block 上方的位移
+        flushed_print("移动到第三个 Fluted-Block 上方...")
         curr_pose = self.robot.get_left_ee_pose()
-        cup3_pos = self.cup3.get_pose().p
+        block3_pos = self.fluted_block3.get_pose().p
         
-        # 目标位置在杯子中心上方 0.15m (Top-Down 模式)
+        # 目标位置在 Fluted-Block 中心上方 0.15m (Top-Down 模式)
         y_offset = 0.0
-        dx = cup3_pos[0] - curr_pose[0]
-        dy = (cup3_pos[1] + y_offset) - curr_pose[1]
-        dz = (cup3_pos[2] + 0.15) - curr_pose[2]
+        dx = block3_pos[0] - curr_pose[0]
+        dy = (block3_pos[1] + y_offset) - curr_pose[1]
+        dz = (block3_pos[2] + 0.15) - curr_pose[2]
         
         # 使用 Top-down 姿态 (参考 _GLOBAL_CONFIGS.py)
         top_down_quat = [-0.5, 0.5, -0.5, -0.5]
@@ -199,7 +199,7 @@ class flip_cup_find_block(Base_Task):
         self.move(self.move_by_displacement(arm_tag=arm_L, z=-0.014))
         
         
-        # 5. 闭合夹爪 (设置位置为 0.8，避免太紧导致杯子飞出)
+        # 5. 闭合夹爪 (设置位置为 0.70，避免太紧导致物体飞出)
         flushed_print("闭合夹爪...")
         self.move((arm_L, [Action(arm_L, "close", target_gripper_pos=0.7)]))
         
