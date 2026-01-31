@@ -316,7 +316,79 @@ class flip_cup_find_block(Base_Task):
         flushed_print("任务完成，抬起手臂...")
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.2))
         
-        flushed_print("由于抓到了目标槽块并将其平移放置在桌面上，任务圆满完成。")
+        # 25. 移动到显露出的红方块上方
+        flushed_print("移动到物块上方...")
+        # 找到当前存在的红方块
+        red_block_obj = self.blocks["block2"] if "block2" in self.blocks else self.blocks["block3"]
+        red_block_pos = red_block_obj.get_pose().p
+        
+        curr_pose_above = (self.robot.get_left_ee_pose() if target_arm_tag.arm == "left" else self.robot.get_right_ee_pose())
+        
+        # 移动到红方块上方 0.15m
+        self.move(self.move_by_displacement(
+            arm_tag=target_arm_tag,
+            x=red_block_pos[0] - curr_pose_above[0],
+            y=red_block_pos[1] - curr_pose_above[1],
+            z=(red_block_pos[2] + 0.15) - curr_pose_above[2],
+            quat=top_down_quat
+        ))
+        
+        # 26. 向下移动接触物块
+        # flushed_print("向下移动接触物块...")
+        # self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.14))
+        
+        # 27. 闭合夹爪抓住物块
+        flushed_print("闭合夹爪抓住物块...")
+        # 红方块较小 (0.025m), 设置较大的闭合值
+        self.move((target_arm_tag, [Action(target_arm_tag, "close", target_gripper_pos=0.2)]))
+        
+        # 28. 向上平移
+        flushed_print("向上平移...")
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.1))
+        
+        # 29. 移动到槽块上方 (分解运动：先移动 XY，再移动 Z)
+        flushed_print("将红方块平移到槽块所在位置 (XY)...")
+        target_block_current_pos = target_block_obj.get_pose().p
+        curr_pose_with_red = (self.robot.get_left_ee_pose() if target_arm_tag.arm == "left" else self.robot.get_right_ee_pose())
+        
+        # 步骤 29a: 先在 XY 平面上移动到槽块上方，高度保持不变
+        self.move(self.move_by_displacement(
+            arm_tag=target_arm_tag,
+            x=target_block_current_pos[0] - curr_pose_with_red[0],
+            y=target_block_current_pos[1] - curr_pose_with_red[1],
+            z=0.0,
+            quat=top_down_quat
+        ))
+        
+        # 刷新位置以进行下一步 Z 轴移动
+        # curr_pose_after_xy = (self.robot.get_left_ee_pose() if target_arm_tag.arm == "left" else self.robot.get_right_ee_pose())
+        # flushed_print("向下逼近槽块高度 (Z)...")
+        # # 步骤 29b: 垂直向下移动到槽块上方 0.15m
+        # self.move(self.move_by_displacement(
+        #     arm_tag=target_arm_tag,
+        #     x=0.0,
+        #     y=0.0,
+        #     z=(target_block_current_pos[2] + 0.15) - curr_pose_after_xy[2],
+        #     quat=top_down_quat
+        # ))
+        
+        # 30. 向下平移靠近槽块
+        flushed_print("放下红方块...")
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.14))
+        
+        # 31. 松开夹爪
+        flushed_print("松开红方块...")
+        self.move((target_arm_tag, [Action(target_arm_tag, "open", target_gripper_pos=1)]))
+        
+        # 32. 抬起手臂复位
+        flushed_print("任务演示结束，准备复位...")
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.15))
+        
+        # 33. 全局复位
+        flushed_print("机械臂复位...")
+        self.move(self.back_to_origin(target_arm_tag))
+        
+        flushed_print("由于成功抓取并将其放置在槽块上方，任务最终圆满完成。")
         
         
         flushed_print("环境演示完成。")
