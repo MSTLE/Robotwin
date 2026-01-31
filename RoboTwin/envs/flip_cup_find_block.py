@@ -276,7 +276,7 @@ class flip_cup_find_block(Base_Task):
         ))
         
         # 下降并释放
-        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.14))
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.13))
         self.move((target_arm_tag, [Action(target_arm_tag, "open", target_gripper_pos=1)]))
         
         # 最终复位
