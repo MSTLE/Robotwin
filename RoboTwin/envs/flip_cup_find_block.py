@@ -37,11 +37,33 @@ class flip_cup_find_block(Base_Task):
         flushed_print("正在加载资产...")
         # Base_Task._init_task_env_ 已经调用了 create_table_and_wall
         
-        # 定义三个物块的位置
+        # 使用基准桌面高度，让 create_box/create_actor 自动处理 table_z_bias
+        base_table_height = 0.74
+        
+        # 1. 在桌面上创建矩形垫
+        pad_thickness = 0.08
+        pad_half_thickness = pad_thickness / 2
+        pad_z = base_table_height + pad_half_thickness
+        
+        self.pad = create_box(
+            scene=self,
+            pose=sapien.Pose([0.0, 0.0, pad_z]),
+            half_size=(0.25, 0.045, pad_half_thickness),  # 设置垫子大小覆盖物块和杯子
+            color=(45/255, 173/255, 232/255),  # 蓝色垫子
+            name="pad",
+            is_static=True,
+        )
+        
+        # 垫子表面的基准 z 坐标
+        pad_surface_z = base_table_height + pad_thickness
+        
+        # 2. 定义三个物块的位置，并修正 z 轴使其放在垫子上
+        # 物块 half_size 为 0.02, 中心应在 pad_surface_z + 0.02
+        block_z = pad_surface_z + 0.02
         block_positions = [
-            ([0.0, 0.0, 0.77], "block1"),
-            ([0.2, 0.0, 0.77], "block2"),
-            ([-0.2, 0.0, 0.77], "block3")
+            ([0.0, 0.0, block_z], "block1"),
+            ([0.2, 0.0, block_z], "block2"),
+            ([-0.2, 0.0, block_z], "block3")
         ]
         
         # 根据配置决定生成顺序
@@ -60,7 +82,7 @@ class flip_cup_find_block(Base_Task):
         self.generated_blocks = []
         self.blocks = {}
         
-        # 在桌面上创建选中的物块
+        # 在垫子上创建选中的物块
         for idx in selected_indices:
             pos, name = block_positions[idx]
             block = create_box(
@@ -76,13 +98,14 @@ class flip_cup_find_block(Base_Task):
             self.generated_blocks.append({"name": name, "position": pos, "index": int(idx)})
             flushed_print(f"  生成物块: {name} at {pos}")
         
-        # 在三个物块上方创建三个杯子 (使用 021_cup, model_id=3)
-        # 杯子需要放在物块上方,z坐标需要加上物块高度(0.04)和杯子底部到中心的距离
+        # 3. 在三个物块位置上方创建三个杯子，并修正 z 轴使其放在垫子上
+        # 杯子中心偏移量为 0.08, 中心应在 pad_surface_z + 0.08
+        cup_z = pad_surface_z + 0.08
         
-        # 杯子1: 在物块1上方
+        # 杯子1: 在位置1
         self.cup1 = create_actor(
             scene=self,
-            pose=sapien.Pose([0.0, 0.0, 0.82], [0.707, -0.707, 0, 0]),  # 桌面0.74 + 杯子中心偏移0.08
+            pose=sapien.Pose([0.0, 0.0, cup_z], [0.707, -0.707, 0, 0]),
             modelname="021_cup",
             model_id=3,
             convex=False,  # 非凸包,允许夹爪伸进杯子内部
@@ -91,10 +114,10 @@ class flip_cup_find_block(Base_Task):
         self.cup1.set_name("cup1")
         self.cup1.set_mass(0.1)  # 设置杯子质量为100克
         
-        # 杯子2: 在物块2上方
+        # 杯子2: 在位置2
         self.cup2 = create_actor(
             scene=self,
-            pose=sapien.Pose([0.2, 0.0, 0.82], [0.707, -0.707, 0, 0]),  # 桌面0.74 + 杯子中心偏移0.08
+            pose=sapien.Pose([0.2, 0.0, cup_z], [0.707, -0.707, 0, 0]),
             modelname="021_cup",
             model_id=3,
             convex=False,  # 非凸包,允许夹爪伸进杯子内部
@@ -103,10 +126,10 @@ class flip_cup_find_block(Base_Task):
         self.cup2.set_name("cup2")
         self.cup2.set_mass(0.1)  # 设置杯子质量为100克
         
-        # 杯子3: 在物块3上方
+        # 杯子3: 在位置3
         self.cup3 = create_actor(
             scene=self,
-            pose=sapien.Pose([-0.2, 0.0, 0.82], [0.707, -0.707, 0, 0]),  # 桌面0.74 + 杯子中心偏离0.08
+            pose=sapien.Pose([-0.2, 0.0, cup_z], [0.707, -0.707, 0, 0]),
             modelname="021_cup",
             model_id=3,
             convex=False,  # 非凸包,允许夹爪伸进杯子内部
@@ -115,7 +138,7 @@ class flip_cup_find_block(Base_Task):
         self.cup3.set_name("cup3")
         self.cup3.set_mass(0.1)  # 设置杯子质量为100克
         
-        flushed_print("资产加载完成（机器人、桌子、三个物块和三个杯子）。")
+        flushed_print("资产加载完成（机器人、桌子、垫子、三个物块位置和三个杯子）。")
 
     def play_once(self):
         flushed_print("执行基本的环境演示...")
