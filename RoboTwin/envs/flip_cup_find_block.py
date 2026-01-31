@@ -218,7 +218,12 @@ class flip_cup_find_block(Base_Task):
         
         # 9. 抬起手臂离开
         flushed_print("抬起手臂离开...")
-        self.move(self.move_by_displacement(arm_tag=arm_L, z=0.2))
+        self.move(self.move_by_displacement(arm_tag=arm_L, z=0.08))
+        
+        # 10. 复位手臂
+        flushed_print("复位手臂...")
+        self.move(self.back_to_origin(arm_L))
+        
         
         flushed_print("环境演示完成。")
         return self.info
