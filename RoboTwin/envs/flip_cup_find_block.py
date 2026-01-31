@@ -82,9 +82,16 @@ class flip_cup_find_block(Base_Task):
         # 记录实际生成的物块信息
         self.generated_blocks = []
         self.blocks = {}
+        self.target_fluted_block_name = None
         
         # 在垫子上创建选中的物块
         for idx in selected_indices:
+            # 记录哪一个是目标槽块: index 0 对应 x=0.2 (fluted_block2), index 1 对应 x=-0.2 (fluted_block3)
+            if idx == 0:
+                self.target_fluted_block_name = "fluted_block2"
+            else:
+                self.target_fluted_block_name = "fluted_block3"
+                
             pos, name = block_positions[idx]
             block = create_box(
                 scene=self,
@@ -97,7 +104,7 @@ class flip_cup_find_block(Base_Task):
             block.set_mass(0.05)
             self.blocks[name] = block
             self.generated_blocks.append({"name": name, "position": pos, "index": int(idx)})
-            flushed_print(f"  生成物块: {name} at {pos}")
+            flushed_print(f"  生成物块: {name} at {pos} (对应目标槽块: {self.target_fluted_block_name})")
         
         # 3. 在三个物块位置上方创建三个 Fluted-Block (作为杯子的替代品)
         # 由于 create_actor 强制使用 json 中的 scale，我们在代码中手动创建一个缩小的版本
@@ -264,6 +271,52 @@ class flip_cup_find_block(Base_Task):
         # 19. 复位右臂
         flushed_print("复位右臂...")
         self.move(self.back_to_origin(arm_R))
+        
+        # 20. 最终确认：重新抓取出现红方块的目标槽块
+        flushed_print(f"--- 搜索结束，目标物块在 {self.target_fluted_block_name} 下方 ---")
+        
+        # 确定执行抓取的手臂和目标对象
+        target_arm_tag = ArmTag("left") if "block3" in self.target_fluted_block_name else ArmTag("right")
+        target_block_obj = getattr(self, self.target_fluted_block_name)
+        
+        flushed_print(f"使用 {target_arm_tag.arm} 臂重新抓取目标槽块...")
+        # 抬起 -> 移动 -> 向下 -> 抓取 -> 抬起
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.1))
+        
+        curr_pose_final = (self.robot.get_left_ee_pose() if target_arm_tag.arm == "left" else self.robot.get_right_ee_pose())
+        t_pos = target_block_obj.get_pose().p
+        
+        # 计算位移并保持 Top-down 姿态
+        self.move(self.move_by_displacement(
+            arm_tag=target_arm_tag, 
+            x=t_pos[0] - curr_pose_final[0], 
+            y=t_pos[1] - curr_pose_final[1], 
+            z=(t_pos[2] + 0.15) - curr_pose_final[2],
+            quat=top_down_quat
+        ))
+        
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.01))
+        self.move((target_arm_tag, [Action(target_arm_tag, "close", target_gripper_pos=0.7)]))
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.05))
+        
+        # 21. 将槽块向 y 负方向移动
+        flushed_print("将槽块向 y 负方向移动...")
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, y=-0.18))
+        
+        # 22. 向下平移放到桌面上
+        flushed_print("向下平移放到桌面上...")
+        # 减小下降距离，防止过度下压
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.13))
+        
+        # 23. 松开夹爪
+        flushed_print("在桌面上松开夹爪...")
+        self.move((target_arm_tag, [Action(target_arm_tag, "open", target_gripper_pos=1)]))
+        
+        # 24. 抬起手臂
+        flushed_print("任务完成，抬起手臂...")
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.2))
+        
+        flushed_print("由于抓到了目标槽块并将其平移放置在桌面上，任务圆满完成。")
         
         
         flushed_print("环境演示完成。")
