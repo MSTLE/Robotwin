@@ -1,0 +1,34 @@
+{
+    "full_description": "Search for the hidden red target block by lifting the two fluted blocks using both arms. Once found, move the covering fluted block aside, pick up the red target block, and place it on top of the moved fluted block.",
+    "schema": "{A} notifies the red target block, {B} notifies the left fluted block, {C} notifies the right fluted block, {D} notifies the blue pad, {a} notifies the left arm, {b} notifies the right arm",
+    "preference": "num of words should not exceed 15. Degree of detail avg is six.",
+    "seen": [
+        "Search under {B} and {C}, then place {A} on the moved cover.",
+        "Check {B} with {a} and {C} with {b}, then put {A} on it.",
+        "Lift covers to find {A}, then stack {A} on the moved cover.",
+        "Find {A} under {B} or {C} and place it on top.",
+        "Search for {A}, move the cover, and place {A} on it.",
+        "Use {a} and {b} to find {A}, then place {A} on cover.",
+        "Uncover {A} from under {B} or {C} and place on top.",
+        "Lift {B} and {C}, find {A}, then put {A} on the block.",
+        "Search for {A}, shift the cover, and stack {A} on it.",
+        "Locate {A} under covers and place it on the covering block.",
+        "Find {A} by lifting {B} and {C}, then place {A} on top.",
+        "Check under {B} and {C}, pick {A}, and place on the block.",
+        "Search, move the fluted block, and place {A} on it.",
+        "Use both arms to find {A} and stack it on the cover.",
+        "Pick up {A} after searching and place it on the cover.",
+        "Locate {A}, move its cover aside, and place {A} on top.",
+        "Search under {B} and {C} for {A}, then place on cover.",
+        "Find the red cube, move its cover, and place it on top.",
+        "Lift {B} and {C} to find {A}, then put {A} on it.",
+        "Search for {A}, move the cover away, and place {A} on it."
+    ],
+    "unseen": [
+        "Find {A} under covers and place it on top of one.",
+        "Search for {A}, then stack it on the moved block.",
+        "Identify {A} position, move cover, and place {A} on it.",
+        "Lift {B} and {C}, then place {A} on the cover.",
+        "Uncover {A} then place it on the fluted block."
+    ]
+}
