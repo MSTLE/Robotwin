@@ -3,6 +3,7 @@ from .utils import *
 import sapien
 import numpy as np
 import sys
+from pathlib import Path
 
 def flushed_print(*args, **kwargs):
     """确保日志能够实时刷新的打印函数"""
@@ -48,7 +49,7 @@ class flip_cup_find_block(Base_Task):
         self.pad = create_box(
             scene=self,
             pose=sapien.Pose([0.0, 0.0, pad_z]),
-            half_size=(0.25, 0.045, pad_half_thickness),  # 设置垫子大小覆盖物块和杯子
+            half_size=(0.25, 0.04, pad_half_thickness),  # 设置垫子大小覆盖物块和杯子
             color=(45/255, 173/255, 232/255),  # 蓝色垫子
             name="pad",
             is_static=True,
@@ -58,8 +59,9 @@ class flip_cup_find_block(Base_Task):
         pad_surface_z = base_table_height + pad_thickness
         
         # 2. 定义三个物块的位置，并修正 z 轴使其放在垫子上
-        # 物块 half_size 为 0.02, 中心应在 pad_surface_z + 0.02
-        block_z = pad_surface_z + 0.02
+        # 物块 half_size 为 0.0125, 中心应在 pad_surface_z + 0.0125
+        block_size = 0.0125
+        block_z = pad_surface_z + block_size
         block_positions = [
             ([0.0, 0.0, block_z], "block1"),
             ([0.2, 0.0, block_z], "block2"),
@@ -88,7 +90,7 @@ class flip_cup_find_block(Base_Task):
             block = create_box(
                 scene=self,
                 pose=sapien.Pose(pos),
-                half_size=(0.02, 0.02, 0.02),
+                half_size=(block_size, block_size, block_size),
                 color=(1, 0, 0),
                 name=name,
                 is_static=False,
@@ -98,47 +100,48 @@ class flip_cup_find_block(Base_Task):
             self.generated_blocks.append({"name": name, "position": pos, "index": int(idx)})
             flushed_print(f"  生成物块: {name} at {pos}")
         
-        # 3. 在三个物块位置上方创建三个杯子，并修正 z 轴使其放在垫子上
-        # 杯子中心偏移量为 0.08, 中心应在 pad_surface_z + 0.08
-        cup_z = pad_surface_z + 0.08
+        # 3. 在三个物块位置上方创建三个 Fluted-Block (作为杯子的替代品)
+        # 由于 create_actor 强制使用 json 中的 scale，我们在代码中手动创建一个缩小的版本
+        def create_shrunk_fluted_block(self, pose, name, shrink_factor=0.7):
+            # 使用基于文件路径的相对路径，确保在不同工作目录下都能找到资产
+            modeldir = Path(__file__).parent.parent / "assets" / "objects" / "004_fluted-block"
+            # 原始比例来自 model_data0.json: [0.45, 0.4, 0.45]
+            original_scale = np.array([0.45, 0.4, 0.45])
+            target_scale = original_scale * shrink_factor
+            
+            # 使用 SAPIEN builder 手动构建，以绕过 create_actor 的限制
+            builder = self.scene.create_actor_builder()
+            builder.set_physx_body_type("dynamic")
+            
+            visual_file = str(modeldir / "visual" / "base0.glb")
+            collision_file = str(modeldir / "collision" / "base0.glb")
+            
+            # 由于是凹形物体（杯子），设置 convex=False
+            builder.add_nonconvex_collision_from_file(filename=collision_file, scale=target_scale)
+            builder.add_visual_from_file(filename=visual_file, scale=target_scale)
+            
+            actor_entity = builder.build(name=name)
+            actor_entity.set_pose(pose)
+            
+            # 模拟 create_actor 返回的 Actor 对象包装
+            return Actor(actor_entity, {"scale": target_scale.tolist()})
+
+        # 缩小后的模型高度也会降低，相应调整 cup_z
+        # 原高度约为 0.16 * 0.4 = 0.064, 缩小 0.7 倍后约为 0.045
+        # 我们把高度调整得低一些，让它更接近垫子表面
+        cup_z = pad_surface_z + 0.05
         
-        # 杯子1: 在位置1
-        self.cup1 = create_actor(
-            scene=self,
-            pose=sapien.Pose([0.0, 0.0, cup_z], [0.707, -0.707, 0, 0]),
-            modelname="021_cup",
-            model_id=3,
-            convex=False,  # 非凸包,允许夹爪伸进杯子内部
-            is_static=False,  # 动态物体,可以被机器人夹起
-        )
-        self.cup1.set_name("cup1")
-        self.cup1.set_mass(0.1)  # 设置杯子质量为100克
+        # 创建三个缩小的 Fluted-Block
+        self.cup1 = create_shrunk_fluted_block(self, sapien.Pose([0.0, 0.0, cup_z], [0.707, -0.707, 0, 0]), "cup1")
+        self.cup1.set_mass(0.1)
         
-        # 杯子2: 在位置2
-        self.cup2 = create_actor(
-            scene=self,
-            pose=sapien.Pose([0.2, 0.0, cup_z], [0.707, -0.707, 0, 0]),
-            modelname="021_cup",
-            model_id=3,
-            convex=False,  # 非凸包,允许夹爪伸进杯子内部
-            is_static=False,  # 动态物体,可以被机器人夹起
-        )
-        self.cup2.set_name("cup2")
-        self.cup2.set_mass(0.1)  # 设置杯子质量为100克
+        self.cup2 = create_shrunk_fluted_block(self, sapien.Pose([0.2, 0.0, cup_z], [0.707, -0.707, 0, 0]), "cup2")
+        self.cup2.set_mass(0.1)
         
-        # 杯子3: 在位置3
-        self.cup3 = create_actor(
-            scene=self,
-            pose=sapien.Pose([-0.2, 0.0, cup_z], [0.707, -0.707, 0, 0]),
-            modelname="021_cup",
-            model_id=3,
-            convex=False,  # 非凸包,允许夹爪伸进杯子内部
-            is_static=False,  # 动态物体,可以被机器人夹起
-        )
-        self.cup3.set_name("cup3")
-        self.cup3.set_mass(0.1)  # 设置杯子质量为100克
+        self.cup3 = create_shrunk_fluted_block(self, sapien.Pose([-0.2, 0.0, cup_z], [0.707, -0.707, 0, 0]), "cup3")
+        self.cup3.set_mass(0.1)
         
-        flushed_print("资产加载完成（机器人、桌子、垫子、三个物块位置和三个杯子）。")
+        flushed_print("资产加载完成（已加载并缩小物体模型）。")
         
         # 4. 增加摩擦力设置，防止杯子滑落
         high_friction_material = self.scene.create_physical_material(
@@ -179,22 +182,22 @@ class flip_cup_find_block(Base_Task):
         curr_pose = self.robot.get_left_ee_pose()
         cup3_pos = self.cup3.get_pose().p
         
-        # 目标位置在杯子中心上方 0.15m，并增加一个 Y 轴偏移
-        y_offset = -0.15  # 向操作者方向偏移一点
+        # 目标位置在杯子中心上方 0.15m (Top-Down 模式)
+        y_offset = 0.0
         dx = cup3_pos[0] - curr_pose[0]
         dy = (cup3_pos[1] + y_offset) - curr_pose[1]
         dz = (cup3_pos[2] + 0.15) - curr_pose[2]
         
-        # 使用 displacement 移动到目标位置
-        self.move(self.move_by_displacement(arm_tag=arm_L, x=dx, y=dy, z=dz))
+        # 使用 Top-down 姿态 (参考 _GLOBAL_CONFIGS.py)
+        top_down_quat = [-0.5, 0.5, -0.5, -0.5]
+        
+        # 使用 displacement 移动到目标位置并设定 Top-Down 姿态
+        self.move(self.move_by_displacement(arm_tag=arm_L, x=dx, y=dy, z=dz, quat=top_down_quat))
         
         # 3. 向下移动 (使用 displacement)
         flushed_print("向下移动...")
-        self.move(self.move_by_displacement(arm_tag=arm_L, z=-0.17))
+        self.move(self.move_by_displacement(arm_tag=arm_L, z=-0.014))
         
-        # 4. 向 Y 正方向移动一点点 (使用 displacement)
-        flushed_print("向 Y 正方向移动...")
-        self.move(self.move_by_displacement(arm_tag=arm_L, y=0.025))
         
         # 5. 闭合夹爪 (设置位置为 0.8，避免太紧导致杯子飞出)
         flushed_print("闭合夹爪...")
@@ -202,19 +205,16 @@ class flip_cup_find_block(Base_Task):
         
         # 6. 向上平移 (使用 displacement)
         flushed_print("向上平移...")
-        self.move(self.move_by_displacement(arm_tag=arm_L, z=0.15))
-        
-        # 6.5 对准中心 (由于之前抓取时有 Y 偏移，放回时需要补偿回来以对准物块)
-        flushed_print("对准放回中心...")
-        self.move(self.move_by_displacement(arm_tag=arm_L, y=0.025))
+        self.move(self.move_by_displacement(arm_tag=arm_L, z=0.05))
+
         
         # 7. 向下平移放回 (使用 displacement)
         flushed_print("向下平移放回...")
-        self.move(self.move_by_displacement(arm_tag=arm_L, z=-0.15))
+        self.move(self.move_by_displacement(arm_tag=arm_L, z=-0.05))
         
         # 8. 松开夹爪
         flushed_print("松开夹爪...")
-        self.move((arm_L, [Action(arm_L, "open")]))
+        self.move((arm_L, [Action(arm_L, "open", target_gripper_pos=1)]))
         
         # 9. 抬起手臂离开
         flushed_print("抬起手臂离开...")
