@@ -12,8 +12,18 @@ def flushed_print(*args, **kwargs):
 
 class flip_cup_find_block(Base_Task):
     """
-    翻杯寻物任务环境：
-    机器人需要翻开或移开遮挡物（槽块，替代杯子）来寻找下方隐藏的红色目标方块。
+    任务：翻杯寻物与精准放置 (Flip Cup Find Block & Place)
+    
+    任务描述：
+    1. 搜索阶段 (Search): 机器人左右手臂分别提起两侧的 Fluted-Block 检查下方是否有隐藏的红方块。
+    2. 发现阶段 (Identify): 确定红方块位置后，由对应手臂将覆盖在其上的 Fluted-Block 移至桌面。
+    3. 操作阶段 (Manipulate): 抓取暴露出的红色目标方块。
+    4. 放置阶段 (Place): 将抓取的红方块精准放置在刚才移开的 Fluted-Block 顶部。
+    
+    成功判定 (Success Criteria):
+    - 完成了初步的双臂搜索。
+    - 遮挡物被成功移除并平稳放置。
+    - 红方块最终稳固地停留在遮挡物上方。
     """
 
     def setup_demo(self, **kwags):
@@ -26,7 +36,11 @@ class flip_cup_find_block(Base_Task):
             "robot": "aloha-agilex",
             "table": "desk",
             "task": "flip_block_find_block",
-            "random_block_order": self.random_block_order
+            "random_block_order": self.random_block_order,
+            "{A}": "目标红方块 (Red target block)",
+            "{B}": "左侧遮挡槽块 (Left fluted block)",
+            "{C}": "右侧遮挡槽块 (Right fluted block)",
+            "{D}": "蓝色操作垫 (Blue pad)"
         }
         
         if hasattr(self, 'generated_blocks'):
