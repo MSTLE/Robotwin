@@ -58,8 +58,8 @@ class flip_cup_find_block(Base_Task):
         block_size = 0.0125
         block_z = pad_surface_z + block_size
         block_positions = [
-            ([0.2, 0.0, block_z], "block2"),
-            ([-0.2, 0.0, block_z], "block3")
+            ([0.15, 0.0, block_z], "block2"),
+            ([-0.15, 0.0, block_z], "block3")
         ]
         
         # 根据 Episode 编号或随机性决定生成的方块
@@ -91,7 +91,7 @@ class flip_cup_find_block(Base_Task):
             block.set_mass(0.05)
             self.blocks[name] = block
             self.generated_blocks.append({"name": name, "position": pos, "index": int(idx)})
-            flushed_print(f"已生成 {name} 位置: {pos} (目标遮挡物: {self.target_fluted_block_name})")
+            flushed_print(f"已生成 {name} 位置: {pos} (对应目标遮挡物: {self.target_fluted_block_name})")
         
         # 3. 设置 Fluted-Blocks（作为遮挡物/外壳）
         def create_shrunk_fluted_block(self, pose, name, shrink_factor=0.7):
@@ -115,11 +115,11 @@ class flip_cup_find_block(Base_Task):
 
         fluted_block_z = pad_surface_z + 0.05
         
-        # 创建两个遮挡槽块
-        self.fluted_block2 = create_shrunk_fluted_block(self, sapien.Pose([0.2, 0.0, fluted_block_z], [0.707, -0.707, 0, 0]), "fluted_block2")
+        # 创建两个缩小的 Fluted-Block (原 block1 位置的已删除)
+        self.fluted_block2 = create_shrunk_fluted_block(self, sapien.Pose([0.15, 0.0, fluted_block_z], [0.707, -0.707, 0, 0]), "fluted_block2")
         self.fluted_block2.set_mass(0.1)
         
-        self.fluted_block3 = create_shrunk_fluted_block(self, sapien.Pose([-0.2, 0.0, fluted_block_z], [0.707, -0.707, 0, 0]), "fluted_block3")
+        self.fluted_block3 = create_shrunk_fluted_block(self, sapien.Pose([-0.15, 0.0, fluted_block_z], [0.707, -0.707, 0, 0]), "fluted_block3")
         self.fluted_block3.set_mass(0.1)
         
         flushed_print("资产加载完成（已包含缩放模型）。")
