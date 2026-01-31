@@ -7,8 +7,8 @@ embodiment:
 language_num: 100
 
 # 物块生成模式配置
-# false: 顺序循环生成 (ep0→block1, ep1→block2, ep2→block3, ep3→block1...)
-# true: 随机生成 (每次从block1,2,3中随机选择一个)
+# false: 顺序循环生成 (ep0→block1, ep1→block2, ep2→block1, ep3→block2...)，用于数据平衡
+# true: 随机生成 (每次从block1,2中随机选择一个生成物块)，用于评估策略
 random_block_order: false
 
 domain_randomization:
