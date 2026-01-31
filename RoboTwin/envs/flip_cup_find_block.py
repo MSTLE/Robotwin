@@ -149,6 +149,17 @@ class flip_cup_find_block(Base_Task):
                     shape.set_physical_material(high_friction_material)
         
         flushed_print("物理材质已更新（摩擦力已增大）。")
+        
+        # 记录初始位置以便后续校验
+        self.init_fluted_block2_pos = self.fluted_block2.get_pose().p
+        self.init_fluted_block3_pos = self.fluted_block3.get_pose().p
+        
+        # 初始化各阶段成功标志
+        self.success_stage1_search_L = False  # 左臂检查
+        self.success_stage2_search_R = False  # 右臂检查
+        self.success_stage3_move_cover = False # 移开遮挡物
+        self.success_stage4_pick_block = False # 抓起红方块
+        self.success_stage5_place_block = False # 放置红方块
 
     def play_once(self):
         """执行预定义的演示序列。"""
@@ -181,6 +192,13 @@ class flip_cup_find_block(Base_Task):
         self.move(self.move_by_displacement(arm_tag=arm_L, z=-0.05))
         self.move((arm_L, [Action(arm_L, "open", target_gripper_pos=1)]))
         self.move(self.move_by_displacement(arm_tag=arm_L, z=0.08))
+        
+        # 校验阶段1：左臂检查结果 (方块回到原位附近)
+        dist_L = np.linalg.norm(self.fluted_block3.get_pose().p - self.init_fluted_block3_pos)
+        if dist_L < 0.05:
+            self.success_stage1_search_L = True
+            flushed_print(f"阶段 1 成功: 左臂已检查并放回 (偏离={dist_L:.4f}m)")
+            
         self.move(self.back_to_origin(arm_L))
         
         # 右臂：检查右侧的 fluted_block2
@@ -209,6 +227,13 @@ class flip_cup_find_block(Base_Task):
         self.move(self.move_by_displacement(arm_tag=arm_R, z=-0.05))
         self.move((arm_R, [Action(arm_R, "open", target_gripper_pos=1)]))
         self.move(self.move_by_displacement(arm_tag=arm_R, z=0.08))
+        
+        # 校验阶段2：右臂检查结果 (方块回到原位附近)
+        dist_R = np.linalg.norm(self.fluted_block2.get_pose().p - self.init_fluted_block2_pos)
+        if dist_R < 0.05:
+            self.success_stage2_search_R = True
+            flushed_print(f"阶段 2 成功: 右臂已检查并放回 (偏离={dist_R:.4f}m)")
+            
         self.move(self.back_to_origin(arm_R))
         
         # 最终行动：针对发现红方块的目标位置进行操作
@@ -242,6 +267,13 @@ class flip_cup_find_block(Base_Task):
         self.move((target_arm_tag, [Action(target_arm_tag, "open", target_gripper_pos=1)]))
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.2))
         
+        # 校验阶段3：遮挡物移开结果 (Y 坐标发生偏移)
+        shell_pos_now = target_shell_obj.get_pose().p
+        shell_init_pos = self.init_fluted_block3_pos if "block3" in self.target_fluted_block_name else self.init_fluted_block2_pos
+        if abs(shell_pos_now[1] - shell_init_pos[1]) > 0.1:
+            self.success_stage3_move_cover = True
+            flushed_print(f"阶段 3 成功: 遮挡物已移开 (Y 偏移={abs(shell_pos_now[1] - shell_init_pos[1]):.4f}m)")
+        
         # 移动到红方块正上方进行标记
         flushed_print("对准隐藏的目标方块...")
         red_block_obj = self.blocks["block2"] if "block2" in self.blocks else self.blocks["block3"]
@@ -261,6 +293,12 @@ class flip_cup_find_block(Base_Task):
         self.move((target_arm_tag, [Action(target_arm_tag, "close", target_gripper_pos=0.2)]))
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.1))
         
+        # 校验阶段4：红方块被抓起结果 (高度 Z 增加)
+        red_block_pos_now = red_block_obj.get_pose().p
+        if red_block_pos_now[2] > 0.85:
+            self.success_stage4_pick_block = True
+            flushed_print(f"阶段 4 成功: 目标红方块已抓起 (高度 Z={red_block_pos_now[2]:.4f}m)")
+        
         # 最后一步：将红色方块放置在之前移开的遮挡物上方
         flushed_print("将红方块放置在遮挡物上方...")
         current_shell_pos = target_shell_obj.get_pose().p
@@ -279,6 +317,14 @@ class flip_cup_find_block(Base_Task):
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.13))
         self.move((target_arm_tag, [Action(target_arm_tag, "open", target_gripper_pos=1)]))
         
+        # 校验阶段5：红方块放置结果 (位于遮挡物上方)
+        red_p = red_block_obj.get_pose().p
+        shell_p = target_shell_obj.get_pose().p
+        horizontal_dist = np.linalg.norm(red_p[:2] - shell_p[:2])
+        if red_p[2] > shell_p[2] and horizontal_dist < 0.05:
+            self.success_stage5_place_block = True
+            flushed_print(f"阶段 5 成功: 红方块已放置在遮挡物上方 (距中心={horizontal_dist:.4f}m)")
+        
         # 最终复位
         flushed_print("演示结束，正在复位机械臂...")
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.15))
@@ -288,8 +334,33 @@ class flip_cup_find_block(Base_Task):
         return self.info
 
     def check_success(self):
-        """如果环境基本加载成功，则视为任务成功。"""
-        return True
+        """
+        全面校验任务成功状态：
+        1. 左右手臂的初次搜索是否正常放回。
+        2. 遮挡物是否被成功移开。
+        3. 红方块是否被成功抓取。
+        4. 红方块最终是否放置在遮挡物上方。
+        """
+        flushed_print("\n" + "="*20 + " 任务成功校验 " + "="*20)
+        
+        # 统计各阶段状态
+        stages = {
+            "阶段 1 (左臂搜索)": self.success_stage1_search_L,
+            "阶段 2 (右臂搜索)": self.success_stage2_search_R,
+            "阶段 3 (移开遮挡物)": self.success_stage3_move_cover,
+            "阶段 4 (抓取红方块)": self.success_stage4_pick_block,
+            "阶段 5 (放置在上方)": self.success_stage5_place_block
+        }
+        
+        for name, success in stages.items():
+            status = "✓ 成功" if success else "✗ 失败"
+            flushed_print(f"{name}: {status}")
+            
+        overall_success = all(stages.values())
+        flushed_print(f"最终判定: {'任务完成' if overall_success else '任务未达标'}")
+        flushed_print("="*54 + "\n")
+        
+        return overall_success
 
 if __name__ == "__main__":
     pass
