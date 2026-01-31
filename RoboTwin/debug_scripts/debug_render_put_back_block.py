@@ -8,6 +8,8 @@ import numpy as np
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 sys.path.append(project_root)
+os.chdir(project_root)
+
 
 from envs.put_back_block import put_back_block
 
