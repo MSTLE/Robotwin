@@ -37,10 +37,10 @@ class flip_cup_find_block(Base_Task):
             "table": "desk",
             "task": "flip_block_find_block",
             "random_block_order": self.random_block_order,
-            "{A}": "目标红方块 (Red target block)",
-            "{B}": "左侧遮挡槽块 (Left fluted block)",
-            "{C}": "右侧遮挡槽块 (Right fluted block)",
-            "{D}": "蓝色操作垫 (Blue pad)"
+            "{A}": "Red target block",
+            "{B}": "Left fluted block",
+            "{C}": "Right fluted block",
+            "{D}": "Blue pad"
         }
         
         if hasattr(self, 'generated_blocks'):
