@@ -53,7 +53,7 @@ class flip_cup_find_block(Base_Task):
         base_table_height = 0.74
         
         # 1. 在桌面上设置蓝色长方形垫子
-        pad_thickness = 0.08
+        pad_thickness = 0.02
         pad_half_thickness = pad_thickness / 2
         pad_z = base_table_height + pad_half_thickness
         
@@ -277,7 +277,7 @@ class flip_cup_find_block(Base_Task):
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.05))
         flushed_print("正在移开遮挡物...")
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, y=-0.18))
-        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.13))
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.07))
         self.move((target_arm_tag, [Action(target_arm_tag, "open", target_gripper_pos=1)]))
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.2))
         
@@ -309,7 +309,7 @@ class flip_cup_find_block(Base_Task):
         
         # 校验阶段4：红方块被抓起结果 (高度 Z 增加)
         red_block_pos_now = red_block_obj.get_pose().p
-        if red_block_pos_now[2] > 0.85:
+        if red_block_pos_now[2] > 0.81:
             self.success_stage4_pick_block = True
             flushed_print(f"阶段 4 成功: 目标红方块已抓起 (高度 Z={red_block_pos_now[2]:.4f}m)")
         
@@ -328,7 +328,7 @@ class flip_cup_find_block(Base_Task):
         ))
         
         # 下降并释放
-        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.13))
+        self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.07))
         self.move((target_arm_tag, [Action(target_arm_tag, "open", target_gripper_pos=1)]))
         
         # 校验阶段5：红方块放置结果 (位于遮挡物上方)
