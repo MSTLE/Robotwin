@@ -1,0 +1,34 @@
+{
+    "full_description": "Use the right arm to grasp the bottle at the target position, lift it up, and perform a vertical shaking motion three times to complete the task.",
+    "schema": "{A} notifies the bottle, {B} notifies the table, {a} notifies the left arm, {b} notifies the right arm",
+    "preference": "num of words should not exceed 15. Degree of detail avg is six.",
+    "seen": [
+        "Grasp {A} with {b}, lift it, and shake it three times.",
+        "Use {b} to pick up {A} and shake it up and down.",
+        "Catch {A} using {b} and perform a triple shake motion.",
+        "Lift {A} with the right arm and shake it thrice vertically.",
+        "Pick {A} from the table and shake it three times.",
+        "Right arm grabs {A}, lifts, and shakes it for three cycles.",
+        "Grasp and lift {A}, then execute three vertical shakes.",
+        "Use {b} to hold {A} and shake it up and down.",
+        "Complete three shakes after catching {A} with the right arm.",
+        "Hold {A} with {b} and shake it three times to finish.",
+        "Lift {A} from {B} and perform three vertical shake cycles.",
+        "Execute triple shakes after {b} picks up the bottle {A}.",
+        "Grab {A} at the position and shake it three times.",
+        "Use {b} to lift {A} and shake it thrice successfully.",
+        "Shake {A} three times after grasping it with right arm.",
+        "Pick up {A} with {b} then perform three shaking motions.",
+        "Use {b} to catch {A} and shake it three times.",
+        "Grasp {A}, lift it up, and shake it three times.",
+        "Lift and shake {A} three times using the right arm.",
+        "Perform three vertical shakes after picking up {A} with {b}."
+    ],
+    "unseen": [
+        "Grasp {A} and shake it three times with the right arm.",
+        "Use {b} to pick {A} and shake it thrice vertically.",
+        "Catch {A}, lift it, and perform a triple shake.",
+        "Shake {A} three times after lifting it from the table.",
+        "Lift {A} with {b} and complete the shaking task."
+    ]
+}
