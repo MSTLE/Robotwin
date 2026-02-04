@@ -1,0 +1,34 @@
+{
+    "full_description": "Use the right arm to press the bell {A} on the table {B} following the rhythm: short, long, short.",
+    "schema": "{A} notifies the bell, {B} notifies the table, {a} notifies the left arm, {b} notifies the right arm",
+    "preference": "No adjectives at the end. Max 15 words. Include {A} and {B} in all. Include {b} in exactly 50% of instructions.",
+    "seen": [
+        "Use {b} to press {A} on {B}: short, long, short.",
+        "Press {A} on {B} in a short, long, short rhythm.",
+        "Hit {A} on {B} using {b} with short, long, short presses.",
+        "Tap {A} on {B} following the rhythm: short, long, short.",
+        "Use {b} on {A} at {B} to perform short, long, short presses.",
+        "Execute a short, long, short press sequence on {A} at {B}.",
+        "Press {A} on {B} with {b} in a short, long, short pattern.",
+        "Ring {A} on {B} using the rhythm: short, long, short.",
+        "Use {b} to tap {A} on {B}: short, long, short.",
+        "Perform a short, long, short press rhythm oQn {A} at {B}.",
+        "Hit {A} on {B} with {b} following the short, long, short pattern.",
+        "Tap {A} on {B} in a sequence of short, long, short.",
+        "Use {b} to execute a short, long, short rhythm on {A} at {B}.",
+        "Press {A} on {B} three times: short, long, short.",
+        "Employ {b} to ring {A} on {B} with short, long, short presses.",
+        "Follow the short, long, short rhythm to press {A} on {B}.",
+        "Use {b} to hit {A} on {B} in a short, long, short sequence.",
+        "Ring {A} on {B} with the pattern: short, long, short.",
+        "Tap simple rhythm on {A} at {B} using {b}: short, long, short.",
+        "Execute the short, long, short pressing task on {A} at {B}."
+    ],
+    "unseen": [
+        "Use {b} to press {A} on {B} in a short, long, short sequence.",
+        "Perform the short, long, short rhythm on {A} at {B}.",
+        "Tap {A} on {B} with {b} following a short, long, short pattern.",
+        "Ring {A} on {B} using a short, long, short press sequence.",
+        "Use {b} to hit {A} on {B} with the rhythm: short, long, short."
+    ]
+}

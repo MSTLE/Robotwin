@@ -10,8 +10,7 @@ project_root = os.path.dirname(current_dir)
 sys.path.append(project_root)
 os.chdir(project_root)
 
-
-from envs.catch_bottle_and_shake import catch_bottle_and_shake
+from envs.ring_bell_rhythm import ring_bell_rhythm
 
 def main():
     # 1. Load config
@@ -28,7 +27,7 @@ def main():
             "random_table_height": 0,
             "random_head_camera_dis": 0
         },
-        "task_name": "catch_bottle_and_shake",
+        "task_name": "ring_bell_rhythm",
         "save_path": "debug_data",
         "save_data": True,
         "dual_arm": True,
@@ -44,11 +43,11 @@ def main():
              "wrist_camera_type": "D435",
              "collect_wrist_camera": True
         },
-        "render_freq": 1 
+        "render_freq": 4
     }
 
     print("Initializing environment...")
-    env = catch_bottle_and_shake()
+    env = ring_bell_rhythm()
     # setup_demo will initialize the viewer if render_freq > 0
     env.setup_demo(now_ep_num=0, seed=0, **debug_config)
     
@@ -66,6 +65,11 @@ def main():
     else:
         print("✗ Task failed.")
     
+    print(f"{'=' * 20}")
+    print("  press Enter to exit the environment  ")
+    print(f"{'=' * 20}")
+    input()
+
     env.close_env()
     print("Done.")
 

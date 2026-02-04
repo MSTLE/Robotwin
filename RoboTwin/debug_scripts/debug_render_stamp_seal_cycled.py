@@ -27,7 +27,7 @@ def main():
             "random_table_height": 0,
             "random_head_camera_dis": 0
         },
-        "task_name": "put_back_block",
+        "task_name": "stamp_seal_cycled",
         "save_path": "debug_data",
         "save_data": True,
         "dual_arm": True,
@@ -43,7 +43,7 @@ def main():
              "wrist_camera_type": "D435",
              "collect_wrist_camera": True
         },
-        "render_freq": 4
+        "render_freq": 10
     }
 
     print("Initializing environment...")
