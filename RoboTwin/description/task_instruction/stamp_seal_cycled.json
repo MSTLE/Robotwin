@@ -1,0 +1,34 @@
+{
+    "full_description": "Use the right arm to pick up the seal and perform two cycles of stamping on six pads in a specific sequence.",
+    "schema": "{A} notifies pad 1, {B} notifies pad 2, {C} notifies pad 3, {D} notifies pad 4, {E} notifies pad 5, {F} notifies pad 6, {a} notifies the right arm",
+    "preference": "num of words should not exceed 15. Degree of detail avg is six.",
+    "seen": [
+        "Pick up the seal with {a} and stamp pads in the order 1-5-3-4-2-6.",
+        "Use {a} to grasp the seal and complete two stamping cycles on all pads.",
+        "Sequence {a} to stamp {A}, {E}, {C}, {D}, {B}, and {F} twice.",
+        "Grasp the seal with {a} then stamp each pad following the 1-5-3-4-2-6 order.",
+        "Perform two full stamping rotations across {A} through {F} using {a}.",
+        "Carry the seal with {a} to stamp {A}, {E}, {C}, {D}, {B}, {F} sequentially.",
+        "Use {a} to stamp the red pads in the prescribed numerical sequence twice.",
+        "Complete the 1-5-3-4-2-6 stamping pattern twice using the right arm {a}.",
+        "Pick the seal and let {a} stamp pads starting with {A} and {E}.",
+        "Follow the sequence 1-5-3-4-2-6 to stamp all pads twice with {a}.",
+        "Execute two rounds of stamping on {A} to {F} with the seal.",
+        "Use {a} to move the seal across pads in the specified 1-5-3-4-2-6 order.",
+        "Finish two cycles of stamping {A}, {E}, {C}, {D}, {B}, and {F}.",
+        "Grip the seal using {a} and stamp the designated pads in order.",
+        "Cycle the seal through pads 1, 5, 3, 4, 2, and 6 twice.",
+        "Employ {a} to pick the seal and stamp the six red pads.",
+        "Repeat the 1-5-3-4-2-6 stamping sequence for two full environmental demonstrations.",
+        "Direct {a} to stamp {A} then {E} then others in the loop.",
+        "Use the right arm {a} to stamp every pad in the fixed sequence.",
+        "Stamp pads {A}, {E}, {C}, {D}, {B}, {F} twice using the seal."
+    ],
+    "unseen": [
+        "Complete two cycles of the 1-5-3-4-2-6 stamping task with {a}.",
+        "Stamp all six pads twice in the designated order using the seal.",
+        "Use {a} to rotate the seal through the six pads twice.",
+        "Finish the stamping pattern on {A} through {F} for two rounds.",
+        "Sequence the seal to hit all six target pads in two loops."
+    ]
+}
