@@ -1,0 +1,33 @@
+{
+    "full_description": "Use the robotic arms to move the red block {D} and green block {E} between three pads {A}, {B}, and {C} in a continuous cycle for two rounds.",
+    "schema": "{A} notifies pad0, {B} notifies pad1, {C} notifies pad2, {D} notifies red block, {E} notifies green block, {a} notifies left arm, {b} notifies right arm",
+    "preference": "No adjectives at the end. Max 15 words. Include {A} through {E} in all. Include {a} or {b} in exactly 50% of instructions.",
+    "seen": [
+        "Use {a} and {b} to cycle {D} and {E} across {A}, {B}, {C} twice.",
+        "Cycle blocks {D} and {E} through pads {A}, {B}, and {C} two times.",
+        "Employ {a} or {b} to shift {D} and {E} between {A}, {B}, {C}.",
+        "Move {D} and {E} across {A}, {B}, {C} for two complete cycles.",
+        "Direct {a} and {b} to swap {D} and {E} on {A}, {B}, {C} twice.",
+        "Execute two rounds of cycling {D} and {E} over {A}, {B}, {C}.",
+        "Control {a} and {b} to transport {D} and {E} between {A}, {B}, {C}.",
+        "Perform the block cycle task with {D}, {E} using {A}, {B}, {C} twice.",
+        "Utilize {a} and {b} to relocate {D} and {E} among {A}, {B}, {C}.",
+        "Loop {D} and {E} through positions {A}, {B}, and {C} twice.",
+        "Use {a} and {b} to transfer {D} and {E} across {A}, {B}, {C}.",
+        "Rotate {D} and {E} between {A}, {B}, {C} for two full rounds.",
+        "Operate {a} and {b} to cycle {D} and {E} via {A}, {B}, {C}.",
+        "Shift {D} and {E} between pads {A}, {B}, {C} twice sequentially.",
+        "Command {a} and {b} to move {D} and {E} on {A}, {B}, {C}.",
+        "Finish two cycles of moving {D} and {E} between {A}, {B}, {C}.",
+        "Let {a} and {b} cycle {D} and {E} across {A}, {B}, {C} twice.",
+        "Complete the movement of {D} and {E} over {A}, {B}, {C} twice.",
+        "Task {a} and {b} to cycle {D} and {E} using {A}, {B}, {C}.",
+        "Relocate {D} and {E} between {A}, {B}, and {C} for two loops."
+    ],
+    "unseen": [
+        "Cycle {D} and {E} through {A}, {B}, and {C} twice using both arms.",
+        "Move {D} and {E} between {A}, {B}, {C} for two full rotations.",
+        "Use {a} and {b} to complete two block cycles on {A}, {B}, {C}.",
+        "Perform two rounds of swapping {D} and {E} across {A}, {B}, {C}."
+    ]
+}
