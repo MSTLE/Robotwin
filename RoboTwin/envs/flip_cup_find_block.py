@@ -174,6 +174,85 @@ class flip_cup_find_block(Base_Task):
         self.success_stage3_move_cover = False # 移开遮挡物
         self.success_stage4_pick_block = False # 抓起红方块
         self.success_stage5_place_block = False # 放置红方块
+        
+        # 追踪遮挡物是否曾被提起
+        self.stage1_lifted = False
+        self.stage2_lifted = False
+        
+        # 防止重复打印总体成功
+        self.final_success_printed = False
+
+    def take_dense_action(self, control_seq, save_freq=-1):
+        """
+        重写以在循环中包含 check_success，用于演示验证。
+        """
+        left_arm, left_gripper, right_arm, right_gripper = (
+            control_seq["left_arm"],
+            control_seq["left_gripper"],
+            control_seq["right_arm"],
+            control_seq["right_gripper"],
+        )
+
+        save_freq = self.save_freq if save_freq == -1 else save_freq
+        if save_freq != None:
+            self._take_picture()
+
+        max_control_len = 0
+
+        if left_arm is not None:
+            max_control_len = max(max_control_len, left_arm["position"].shape[0])
+        if left_gripper is not None:
+            max_control_len = max(max_control_len, left_gripper["num_step"])
+        if right_arm is not None:
+            max_control_len = max(max_control_len, right_arm["position"].shape[0])
+        if right_gripper is not None:
+            max_control_len = max(max_control_len, right_gripper["num_step"])
+
+        for control_idx in range(max_control_len):
+
+            if (left_arm is not None and control_idx < left_arm["position"].shape[0]):
+                self.robot.set_arm_joints(
+                    left_arm["position"][control_idx],
+                    left_arm["velocity"][control_idx],
+                    "left",
+                )
+
+            if left_gripper is not None and control_idx < left_gripper["num_step"]:
+                self.robot.set_gripper(
+                    left_gripper["result"][control_idx],
+                    "left",
+                    left_gripper["per_step"],
+                )
+
+            if (right_arm is not None and control_idx < right_arm["position"].shape[0]):
+                self.robot.set_arm_joints(
+                    right_arm["position"][control_idx],
+                    right_arm["velocity"][control_idx],
+                    "right",
+                )
+
+            if right_gripper is not None and control_idx < right_gripper["num_step"]:
+                self.robot.set_gripper(
+                    right_gripper["result"][control_idx],
+                    "right",
+                    right_gripper["per_step"],
+                )
+
+            self.scene.step()
+            self.check_success()  # 在此添加检查
+
+            if self.render_freq and control_idx % self.render_freq == 0:
+                self._update_render()
+                self.viewer.render()
+
+            if save_freq != None and control_idx % save_freq == 0:
+                self._update_render()
+                self._take_picture()
+
+        if save_freq != None:
+            self._take_picture()
+
+        return True
 
     def play_once(self):
         """执行预定义的演示序列。"""
@@ -207,11 +286,7 @@ class flip_cup_find_block(Base_Task):
         self.move((arm_L, [Action(arm_L, "open", target_gripper_pos=1)]))
         self.move(self.move_by_displacement(arm_tag=arm_L, z=0.08))
         
-        # 校验阶段1：左臂检查结果 (方块回到原位附近)
-        dist_L = np.linalg.norm(self.fluted_block3.get_pose().p - self.init_fluted_block3_pos)
-        if dist_L < 0.05:
-            self.success_stage1_search_L = True
-            flushed_print(f"阶段 1 成功: 左臂已检查并放回 (偏离={dist_L:.4f}m)")
+        # 阶段1检测移至 check_success
             
         self.move(self.back_to_origin(arm_L))
         
@@ -242,11 +317,7 @@ class flip_cup_find_block(Base_Task):
         self.move((arm_R, [Action(arm_R, "open", target_gripper_pos=1)]))
         self.move(self.move_by_displacement(arm_tag=arm_R, z=0.08))
         
-        # 校验阶段2：右臂检查结果 (方块回到原位附近)
-        dist_R = np.linalg.norm(self.fluted_block2.get_pose().p - self.init_fluted_block2_pos)
-        if dist_R < 0.05:
-            self.success_stage2_search_R = True
-            flushed_print(f"阶段 2 成功: 右臂已检查并放回 (偏离={dist_R:.4f}m)")
+        # 阶段2检测移至 check_success
             
         self.move(self.back_to_origin(arm_R))
         
@@ -281,12 +352,7 @@ class flip_cup_find_block(Base_Task):
         self.move((target_arm_tag, [Action(target_arm_tag, "open", target_gripper_pos=1)]))
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.2))
         
-        # 校验阶段3：遮挡物移开结果 (Y 坐标发生偏移)
-        shell_pos_now = target_shell_obj.get_pose().p
-        shell_init_pos = self.init_fluted_block3_pos if "block3" in self.target_fluted_block_name else self.init_fluted_block2_pos
-        if abs(shell_pos_now[1] - shell_init_pos[1]) > 0.1:
-            self.success_stage3_move_cover = True
-            flushed_print(f"阶段 3 成功: 遮挡物已移开 (Y 偏移={abs(shell_pos_now[1] - shell_init_pos[1]):.4f}m)")
+        # 阶段3检测移至 check_success
         
         # 移动到红方块正上方进行标记
         flushed_print("对准隐藏的目标方块...")
@@ -307,11 +373,7 @@ class flip_cup_find_block(Base_Task):
         self.move((target_arm_tag, [Action(target_arm_tag, "close", target_gripper_pos=0.2)]))
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=0.1))
         
-        # 校验阶段4：红方块被抓起结果 (高度 Z 增加)
-        red_block_pos_now = red_block_obj.get_pose().p
-        if red_block_pos_now[2] > 0.81:
-            self.success_stage4_pick_block = True
-            flushed_print(f"阶段 4 成功: 目标红方块已抓起 (高度 Z={red_block_pos_now[2]:.4f}m)")
+        # 阶段4检测移至 check_success
         
         # 最后一步：将红色方块放置在之前移开的遮挡物上方
         flushed_print("将红方块放置在遮挡物上方...")
@@ -331,13 +393,7 @@ class flip_cup_find_block(Base_Task):
         self.move(self.move_by_displacement(arm_tag=target_arm_tag, z=-0.07))
         self.move((target_arm_tag, [Action(target_arm_tag, "open", target_gripper_pos=1)]))
         
-        # 校验阶段5：红方块放置结果 (位于遮挡物上方)
-        red_p = red_block_obj.get_pose().p
-        shell_p = target_shell_obj.get_pose().p
-        horizontal_dist = np.linalg.norm(red_p[:2] - shell_p[:2])
-        if red_p[2] > shell_p[2] and horizontal_dist < 0.05:
-            self.success_stage5_place_block = True
-            flushed_print(f"阶段 5 成功: 红方块已放置在遮挡物上方 (距中心={horizontal_dist:.4f}m)")
+        # 阶段5检测移至 check_success
         
         # 最终复位
         flushed_print("演示结束，正在复位机械臂...")
@@ -348,31 +404,80 @@ class flip_cup_find_block(Base_Task):
         return self.info
 
     def check_success(self):
-        """
-        全面校验任务成功状态：
-        1. 左右手臂的初次搜索是否正常放回。
-        2. 遮挡物是否被成功移开。
-        3. 红方块是否被成功抓取。
-        4. 红方块最终是否放置在遮挡物上方。
-        """
-        flushed_print("\n" + "="*20 + " 任务成功校验 " + "="*20)
+        # 防止在初始化完成前进行检查
+        if not hasattr(self, 'pad'):
+            return False
+
+        # 确定目标物体
+        target_name = "block2" if "block2" in self.blocks else "block3"
+        red_block = self.blocks[target_name]
         
-        # 统计各阶段状态
-        stages = {
-            "阶段 1 (左臂搜索)": self.success_stage1_search_L,
-            "阶段 2 (右臂搜索)": self.success_stage2_search_R,
-            "阶段 3 (移开遮挡物)": self.success_stage3_move_cover,
-            "阶段 4 (抓取红方块)": self.success_stage4_pick_block,
-            "阶段 5 (放置在上方)": self.success_stage5_place_block
-        }
-        
-        for name, success in stages.items():
-            status = "✓ 成功" if success else "✗ 失败"
-            flushed_print(f"{name}: {status}")
+        # 确定目标遮挡物
+        if target_name == "block2":
+            target_shell = self.fluted_block2
+            target_shell_init_pos = self.init_fluted_block2_pos
+        else:
+            target_shell = self.fluted_block3
+            target_shell_init_pos = self.init_fluted_block3_pos
+
+        # 1. 检查阶段1 (左臂检查 - fluted_block3)
+        if not self.success_stage1_search_L:
+            # 实时追踪高度变化：如果抬起高度 > 3cm，标记为曾经提起
+            current_z = self.fluted_block3.get_pose().p[2]
+            if current_z > self.init_fluted_block3_pos[2] + 0.03:
+                self.stage1_lifted = True
             
-        overall_success = all(stages.values())
-        flushed_print(f"最终判定: {'任务完成' if overall_success else '任务未达标'}")
-        flushed_print("="*54 + "\n")
+            # 成功条件：曾经提起过 且 现在已放回原位
+            dist_L = np.linalg.norm(self.fluted_block3.get_pose().p - self.init_fluted_block3_pos)
+            if self.stage1_lifted and dist_L < 0.05:
+                self.success_stage1_search_L = True
+                flushed_print(f"阶段 1 成功: 左臂已检查并放回")
+
+        # 2. 检查阶段2 (右臂检查 - fluted_block2)
+        if not self.success_stage2_search_R:
+            # 实时追踪高度变化
+            current_z = self.fluted_block2.get_pose().p[2]
+            if current_z > self.init_fluted_block2_pos[2] + 0.03:
+                self.stage2_lifted = True
+                
+            # 成功条件：曾经提起过 且 现在已放回原位
+            dist_R = np.linalg.norm(self.fluted_block2.get_pose().p - self.init_fluted_block2_pos)
+            if self.stage2_lifted and dist_R < 0.05:
+                self.success_stage2_search_R = True
+                flushed_print(f"阶段 2 成功: 右臂已检查并放回")
+
+        # 3. 检查阶段3 (移开遮挡物)
+        if not self.success_stage3_move_cover:
+            shell_pos_now = target_shell.get_pose().p
+            if abs(shell_pos_now[1] - target_shell_init_pos[1]) > 0.1:
+                self.success_stage3_move_cover = True
+                flushed_print(f"阶段 3 成功: 遮挡物已移开 (Y 偏移={abs(shell_pos_now[1] - target_shell_init_pos[1]):.4f}m)")
+
+        # 4. 检查阶段4 (抓起红方块)
+        if not self.success_stage4_pick_block and self.success_stage3_move_cover:
+            red_block_pos_now = red_block.get_pose().p
+            if red_block_pos_now[2] > 0.81:
+                self.success_stage4_pick_block = True
+                flushed_print(f"阶段 4 成功: 目标红方块已抓起 (高度 Z={red_block_pos_now[2]:.4f}m)")
+
+        # 5. 检查阶段5 (放置在上方)
+        if not self.success_stage5_place_block and self.success_stage4_pick_block:
+            red_p = red_block.get_pose().p
+            shell_p = target_shell.get_pose().p
+            horizontal_dist = np.linalg.norm(red_p[:2] - shell_p[:2])
+            # 加宽一点判定范围，且确保在上方
+            if red_p[2] > shell_p[2] and horizontal_dist < 0.06:
+                self.success_stage5_place_block = True
+                flushed_print(f"阶段 5 成功: 红方块已放置在遮挡物上方 (距中心={horizontal_dist:.4f}m)")
+        
+        # 总体判定
+        overall_success = (self.success_stage3_move_cover and 
+                           self.success_stage4_pick_block and 
+                           self.success_stage5_place_block)
+                           
+        if overall_success and not self.final_success_printed:
+            flushed_print("\n✓ 总体任务已完成！")
+            self.final_success_printed = True
         
         return overall_success
 
