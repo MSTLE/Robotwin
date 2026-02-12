@@ -43,7 +43,8 @@ def main():
              "wrist_camera_type": "D435",
              "collect_wrist_camera": True
         },
-        "render_freq": 4
+        "render_freq": 1
+        
     }
 
     print("Initializing environment...")
@@ -56,14 +57,6 @@ def main():
         env.play_once()
     except Exception as e:
         print(f"Error during play_once: {e}")
-    
-    # Check if task was successful
-    print("\nChecking success...")
-    success = env.check_success()
-    if success:
-        print("✓ Task completed successfully!")
-    else:
-        print("✗ Task failed.")
     
     print(f"{'=' * 20}")
     print("  press Enter to exit the environment  ")
