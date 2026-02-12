@@ -13,7 +13,7 @@ class put_back_block(Base_Task):
 
     def setup_demo(self, **kwags):
         super()._init_task_env_(**kwags)
-        # Populate episode info for instruction generation
+        # 填充 episode 信息用于指令生成
         self.info["info"] = {
             "A": "red block",
             "B": "blue square",
@@ -103,7 +103,83 @@ class put_back_block(Base_Task):
         self.cycle1_success = False
         self.cycle2_success = False
         
+        # 添加检查状态变量
+        self.current_cycle = 0  # 当前循环次数 (0或1)
+        self.final_success_printed = False  # 防止重复打印总体成功
+        
         flushed_print("安全工作区初始化完成。")
+
+    def take_dense_action(self, control_seq, save_freq=-1):
+        """
+        重写以在循环中包含 check_success，用于演示验证。
+        """
+        left_arm, left_gripper, right_arm, right_gripper = (
+            control_seq["left_arm"],
+            control_seq["left_gripper"],
+            control_seq["right_arm"],
+            control_seq["right_gripper"],
+        )
+
+        save_freq = self.save_freq if save_freq == -1 else save_freq
+        if save_freq != None:
+            self._take_picture()
+
+        max_control_len = 0
+
+        if left_arm is not None:
+            max_control_len = max(max_control_len, left_arm["position"].shape[0])
+        if left_gripper is not None:
+            max_control_len = max(max_control_len, left_gripper["num_step"])
+        if right_arm is not None:
+            max_control_len = max(max_control_len, right_arm["position"].shape[0])
+        if right_gripper is not None:
+            max_control_len = max(max_control_len, right_gripper["num_step"])
+
+        for control_idx in range(max_control_len):
+
+            if (left_arm is not None and control_idx < left_arm["position"].shape[0]):
+                self.robot.set_arm_joints(
+                    left_arm["position"][control_idx],
+                    left_arm["velocity"][control_idx],
+                    "left",
+                )
+
+            if left_gripper is not None and control_idx < left_gripper["num_step"]:
+                self.robot.set_gripper(
+                    left_gripper["result"][control_idx],
+                    "left",
+                    left_gripper["per_step"],
+                )
+
+            if (right_arm is not None and control_idx < right_arm["position"].shape[0]):
+                self.robot.set_arm_joints(
+                    right_arm["position"][control_idx],
+                    right_arm["velocity"][control_idx],
+                    "right",
+                )
+
+            if right_gripper is not None and control_idx < right_gripper["num_step"]:
+                self.robot.set_gripper(
+                    right_gripper["result"][control_idx],
+                    "right",
+                    right_gripper["per_step"],
+                )
+
+            self.scene.step()
+            self.check_success()  # 在此添加检查
+
+            if self.render_freq and control_idx % self.render_freq == 0:
+                self._update_render()
+                self.viewer.render()
+
+            if save_freq != None and control_idx % save_freq == 0:
+                self._update_render()
+                self._take_picture()
+
+        if save_freq != None:
+            self._take_picture()
+
+        return True
 
     def play_once(self):
         flushed_print("执行 '放回方块' 任务序列（两次循环）...")
@@ -114,7 +190,8 @@ class put_back_block(Base_Task):
             flushed_print(f"开始第 {cycle + 1} 次循环")
             flushed_print(f"{'='*40}")
             
-            # 重置本次循环的成功标志
+            # 更新当前循环编号并重置本次循环的成功标志
+            self.current_cycle = cycle
             if cycle > 0:
                 self.stage1_success = False
                 self.stage2_success = False
@@ -147,13 +224,7 @@ class put_back_block(Base_Task):
             # 垂直抬起
             self.move(self.move_by_displacement(arm_L, z=0.10))
             
-            # 检查阶段1是否成功（方块在B点附近）
-            block_p = self.block.get_pose().p
-            b_p = self.pos_B_pose.p
-            dist_to_b = np.linalg.norm(block_p[:2] - b_p[:2])
-            if dist_to_b < 0.05:
-                self.stage1_success = True
-                flushed_print(f"阶段1成功: 方块已放置到B点 (距离={dist_to_b:.3f})")
+            # 阶段1检查将由 check_success 自动完成
             
             # 回原点
             self.move(self.back_to_origin(arm_L))
@@ -173,8 +244,7 @@ class put_back_block(Base_Task):
                 self.move(self.close_gripper(arm_R))
                 self.move(self.move_by_displacement(arm_R, z=-0.07))
                 self.bell_clicked = True
-                self.stage2_success = True
-                flushed_print("阶段2成功: 铃铛已被点击")
+                # 阶段2检查将由 check_success 自动完成
                 self.move(self.move_by_displacement(arm_R, z=0.07))
                 self.move(self.back_to_origin(arm_R))
             else:
@@ -216,13 +286,7 @@ class put_back_block(Base_Task):
             # 垂直抬起
             self.move(self.move_by_displacement(arm_L, z=0.10))
             
-            # 检查阶段3是否成功（方块回到A点附近）
-            block_p = self.block.get_pose().p
-            init_p = self.pos_A_init_pose.p
-            dist_to_a = np.linalg.norm(block_p[:2] - init_p[:2])
-            if dist_to_a < 0.05:
-                self.stage3_success = True
-                flushed_print(f"阶段3成功: 方块已放回A点 (距离={dist_to_a:.3f})")
+            # 阶段3检查将由 check_success 自动完成
             
             # 回原点
             self.move(self.back_to_origin(arm_L))
@@ -244,16 +308,54 @@ class put_back_block(Base_Task):
         return self.info
 
     def check_success(self):
-        flushed_print("\n========== 成功检查 ==========")
-        
-        # 显示两次循环的结果
-        flushed_print(f"第1次循环: {'✓ 成功' if self.cycle1_success else '✗ 失败'}")
-        flushed_print(f"第2次循环: {'✓ 成功' if self.cycle2_success else '✗ 失败'}")
-        
-        # 总体成功条件：两次循环都必须成功
+        # 防止在初始化完成前进行检查
+        if not hasattr(self, 'block'):
+            return False
+
+        # 1. 检查阶段1：方块是否在B点附近
+        if not self.stage1_success:
+            block_p = self.block.get_pose().p
+            b_p = self.pos_B_pose.p
+            dist_to_b = np.linalg.norm(block_p[:2] - b_p[:2])
+            if dist_to_b < 0.05:
+                self.stage1_success = True
+                flushed_print(f"阶段1成功: 方块已放置到B点 (距离={dist_to_b:.3f})")
+
+        # 2. 检查阶段2：铃铛是否被点击
+        if not self.stage2_success and self.bell_clicked:
+            bell_pose = self.bell.get_contact_point(0)[:3]
+            positions = self.get_gripper_actor_contact_position("050_bell")
+            eps = [0.025, 0.025]
+            for position in positions:
+                if (np.all(np.abs(position[:2] - bell_pose[:2]) < eps) and 
+                    abs(position[2] - bell_pose[2]) < 0.03):
+                    self.stage2_success = True
+                    flushed_print("阶段2成功: 铃铛已被点击")
+                    break
+
+        # 3. 检查阶段3：方块是否回到A点附近
+        if not self.stage3_success and self.stage1_success and self.stage2_success:
+            block_p = self.block.get_pose().p
+            init_p = self.pos_A_init_pose.p
+            dist_to_a = np.linalg.norm(block_p[:2] - init_p[:2])
+            if dist_to_a < 0.05:
+                self.stage3_success = True
+                flushed_print(f"阶段3成功: 方块已放回A点 (距离={dist_to_a:.3f})")
+                
+                # 本次循环完成，记录结果
+                cycle_success = self.stage1_success and self.stage2_success and self.stage3_success
+                if self.current_cycle == 0:
+                    self.cycle1_success = cycle_success
+                    flushed_print(f"第1次循环: {'✓ 成功' if cycle_success else '✗ 失败'}")
+                else:
+                    self.cycle2_success = cycle_success
+                    flushed_print(f"第2次循环: {'✓ 成功' if cycle_success else '✗ 失败'}")
+
+        # 4. 总体成功判定
         overall_success = self.cycle1_success and self.cycle2_success
-        flushed_print(f"\n总体结果: {'✓ 两次循环全部成功' if overall_success else '✗ 存在循环失败'}")
-        flushed_print("============================\n")
+        if overall_success and not self.final_success_printed:
+            flushed_print("\n✓ 总体结果: 两次循环全部成功")
+            self.final_success_printed = True
         
         return overall_success
 
