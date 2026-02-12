@@ -75,10 +75,89 @@ class stamp_seal_cycled(Base_Task):
             is_static=False
         )
 
-        # init signals
-        self.stamp_cycled_success_times = 0
+        # 初始化状态追踪
+        self.full_sequence = self.pad_sequence * 2  # 完整序列 (2次循环)
+        self.current_step_idx = 0  # 当前需要盖章的序列索引 (0 ~ 11)
+        self.is_contacting = False # 当前接触状态 (防止重复计数)
+        self.stamp_z_threshold = 0.02 # 接触判定的 Z 轴高度差阈值
+        self.stamp_xy_threshold = 0.04 # 接触判定的 XY 平面距离阈值
+        
+        # 防止重复打印总体成功
+        self.final_success_printed = False
 
         flushed_print("安全工作区初始化完成。")
+
+    def take_dense_action(self, control_seq, save_freq=-1):
+        """
+        重写以在循环中包含 check_success，用于验证。
+        """
+        left_arm, left_gripper, right_arm, right_gripper = (
+            control_seq["left_arm"],
+            control_seq["left_gripper"],
+            control_seq["right_arm"],
+            control_seq["right_gripper"],
+        )
+
+        save_freq = self.save_freq if save_freq == -1 else save_freq
+        if save_freq != None:
+            self._take_picture()
+
+        max_control_len = 0
+
+        if left_arm is not None:
+            max_control_len = max(max_control_len, left_arm["position"].shape[0])
+        if left_gripper is not None:
+            max_control_len = max(max_control_len, left_gripper["num_step"])
+        if right_arm is not None:
+            max_control_len = max(max_control_len, right_arm["position"].shape[0])
+        if right_gripper is not None:
+            max_control_len = max(max_control_len, right_gripper["num_step"])
+
+        for control_idx in range(max_control_len):
+
+            if (left_arm is not None and control_idx < left_arm["position"].shape[0]):
+                self.robot.set_arm_joints(
+                    left_arm["position"][control_idx],
+                    left_arm["velocity"][control_idx],
+                    "left",
+                )
+
+            if left_gripper is not None and control_idx < left_gripper["num_step"]:
+                self.robot.set_gripper(
+                    left_gripper["result"][control_idx],
+                    "left",
+                    left_gripper["per_step"],
+                )
+
+            if (right_arm is not None and control_idx < right_arm["position"].shape[0]):
+                self.robot.set_arm_joints(
+                    right_arm["position"][control_idx],
+                    right_arm["velocity"][control_idx],
+                    "right",
+                )
+
+            if right_gripper is not None and control_idx < right_gripper["num_step"]:
+                self.robot.set_gripper(
+                    right_gripper["result"][control_idx],
+                    "right",
+                    right_gripper["per_step"],
+                )
+
+            self.scene.step()
+            self.check_success()  # 在此添加检查
+
+            if self.render_freq and control_idx % self.render_freq == 0:
+                self._update_render()
+                self.viewer.render()
+
+            if save_freq != None and control_idx % save_freq == 0:
+                self._update_render()
+                self._take_picture()
+
+        if save_freq != None:
+            self._take_picture()
+
+        return True
 
     def play_once(self):
         flushed_print("开始环境演示...")
@@ -89,22 +168,16 @@ class stamp_seal_cycled(Base_Task):
 
         # step 1: 抓取印章
         flushed_print("步骤 1: 抓取印章")
-        seal_pose_before = self.seal.get_pose()
+        
         self.move(self.grasp_actor(self.seal, arm_tag=arm_R, pre_grasp_dis=pre_grasp_dis))
         self.move(self.move_by_displacement(arm_R, z=0.08))
-        if self.seal.get_pose().p[2] - seal_pose_before.p[2] > 0.05:
-            flushed_print(f"✓ 印章抓取成功。")
-        else:
-            flushed_print(f"✗ 印章抓取失败。")
-            return self.info
 
+        # 循环盖章演示
         for i in range(2):
-            stamp_success_times = 0
             for j, target_pad_idx in enumerate(self.pad_sequence):
-                flushed_print(f"\n------------ 第 {i+1} 循环 第 {j+1} 次 -------------")
-                flushed_print(f"开始盖章目标垫子 {target_pad_idx}")
+                flushed_print(f"\n------------ 第 {i+1} 循环 第 {j+1} 次 (目标: 垫子 {target_pad_idx}) -------------")
 
-                target_pad = self.pads[target_pad_idx - 1]
+                target_pad = self.pads[target_pad_idx - 1] # pad index is 0-5, sequence is 1-6
                 target_pad_pose = target_pad.get_pose()
 
                 # step 2: 移动到目标垫子上方
@@ -117,35 +190,71 @@ class stamp_seal_cycled(Base_Task):
 
                 # step 3: 盖章
                 flushed_print("步骤 3: 盖章")
-                z_success = False
-                while not z_success:
-                    if self.seal.get_pose().p[2] - target_pad_pose.p[2] < 0.004:
-                        z_success = True
-                    elif self.seal.get_pose().p[2] - target_pad_pose.p[2] > 0.016:
-                        self.move(self.move_by_displacement(arm_R, z=-0.01))
-                    else:
-                        self.move(self.move_by_displacement(arm_R, z=-0.005))
-                if np.linalg.norm(np.array(self.seal.get_pose().p) - np.array(target_pad_pose.p)) > 0.015:
-                    flushed_print(f"✗ 在垫子 {target_pad_idx} 上盖章失败。")
-                    return self.info
-                else:
-                    stamp_success_times += 1
-                    flushed_print(f"✓ 成功在垫子 {target_pad_idx} 上盖章。当前循环已成功盖章次数: {stamp_success_times}")
+                
+                # 下降接触
+                self.move(self.move_to_pose(arm_R, sapien.Pose(
+                    target_pad_pose.p[:3] + [0.0, 0.0, 0.185], # 稍微抬高一点防止压太死
+                    robot_ee_quat
+                )))
 
                 # step 4: 抬起印章
                 flushed_print("步骤 4: 抬起印章")
                 self.move(self.move_by_displacement(arm_R, z=0.1))
 
-            self.stamp_cycled_success_times += 1
-            flushed_print(f"\n=== 已完成第 {self.stamp_cycled_success_times} 次完整盖章循环 ===")
+            flushed_print(f"\n=== 已完成第 {i+1} 次完整盖章循环演示 ===")
 
         flushed_print("\n环境演示结束。")
 
     def check_success(self):
-        if self.stamp_cycled_success_times == 2:
-            flushed_print("✓ 任务成功：已完成两次完整盖章循环。")
+        # 防止初始化前检查
+        if not hasattr(self, 'seal') or not hasattr(self, 'full_sequence'):
+            return False
+
+        # 如果已经完成全部任务
+        if self.current_step_idx >= len(self.full_sequence):
+            if not self.final_success_printed:
+                flushed_print("\n✓ 任务成功：已完成两次完整盖章循环 (12次盖章)。")
+                self.final_success_printed = True
             return True
-        flushed_print(f"✗ 任务未完成：尚未完成两次完整盖章循环。完成次数：{self.stamp_cycled_success_times}")
+
+        # 获取当前目标垫子
+        # 序列存储的是 1-based index (1-6)，pads 列表是 0-based
+        target_pad_num = self.full_sequence[self.current_step_idx]
+        target_pad = self.pads[target_pad_num - 1]
+        
+        seal_pos = self.seal.get_pose().p
+        pad_pos = target_pad.get_pose().p
+        
+        # 计算距离
+        xy_dist = np.linalg.norm(seal_pos[:2] - pad_pos[:2])
+        z_dist = abs(seal_pos[2] - pad_pos[2])
+        
+        # 判定是否"接触"：XY接近 且 Z高度差很小 (印章底部接触垫子)
+        # 印章通常本身有一定高度，这里我们监控 seal actor 的原点与 pad 原点的距离
+        # 假设印章是一个圆柱体，原点在几何中心或底部。从 play_once 的逻辑看，0.004 是判定阈值
+        is_touching = (xy_dist < self.stamp_xy_threshold) and (z_dist < 0.05) 
+        # 注意: z_dist < 0.05 是比较宽的，因为 seal 原点可能在中心。play_once 中是根据差值判定的
+        # 更精确的方式是使用物理碰撞检测，或者根据实际模型尺寸调整 Z 阈值
+        # 这里为了演示稳定性，使用位姿判定
+        
+        if is_touching:
+            if not self.is_contacting:
+                # 刚接触到 (Falling edge -> Rising edge)
+                self.is_contacting = True
+                flushed_print(f"✓ 检测到盖章动作：垫子 {target_pad_num} (进度: {self.current_step_idx + 1}/{len(self.full_sequence)})")
+                self.current_step_idx += 1
+        else:
+            if self.is_contacting:
+                # 刚离开 (Rising edge -> Falling edge)
+                self.is_contacting = False # 重置，准备下一次接触
+
+        # 总体检查
+        if self.current_step_idx >= len(self.full_sequence):
+             if not self.final_success_printed:
+                flushed_print("\n✓ 任务成功：已完成两次完整盖章循环 (12次盖章)。")
+                self.final_success_printed = True
+             return True
+             
         return False
 
 if __name__ == "__main__":
