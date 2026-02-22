@@ -33,19 +33,12 @@ class flip_cup_find_block(Base_Task):
         super()._init_task_env_(**kwags)
         
         self.info["info"] = {
-            "robot": "aloha-agilex",
-            "table": "desk",
-            "task": "flip_block_find_block",
-            "random_block_order": self.random_block_order,
-            "{A}": "Red target block",
-            "{B}": "Left fluted block",
-            "{C}": "Right fluted block",
-            "{D}": "Blue pad"
+            "{A}": "red target block",
+            "{B}": "left fluted block",
+            "{C}": "right fluted block",
+            "{a}": "left",
+            "{b}": "right",
         }
-        
-        if hasattr(self, 'generated_blocks'):
-            self.info["info"]["generated_blocks"] = self.generated_blocks
-            self.info["info"]["num_blocks"] = len(self.generated_blocks)
 
     def load_actors(self):
         """加载并设置场景中的所有物理实体。"""

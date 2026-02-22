@@ -15,7 +15,6 @@ class cycle_block(Base_Task):
         super()._init_task_env_(**kwags)
 
         self.info["info"] = {
-            "task": "cycle_block",
             "{A}": "pad0",
             "{B}": "pad1",
             "{C}": "pad2",

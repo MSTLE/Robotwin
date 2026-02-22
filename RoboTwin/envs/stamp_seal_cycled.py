@@ -17,7 +17,13 @@ class stamp_seal_cycled(Base_Task):
         super()._init_task_env_(**kwags)
 
         self.info["info"] = {
-            "task": "stamp_seal_cycled",
+            "{A}": "pad 1",
+            "{B}": "pad 2",
+            "{C}": "pad 3",
+            "{D}": "pad 4",
+            "{E}": "pad 5",
+            "{F}": "pad 6",
+            "{a}": "right",
         }
 
     def load_actors(self):
@@ -204,6 +210,7 @@ class stamp_seal_cycled(Base_Task):
             flushed_print(f"\n=== 已完成第 {i+1} 次完整盖章循环演示 ===")
 
         flushed_print("\n环境演示结束。")
+        return self.info
 
     def check_success(self):
         # 防止初始化前检查
