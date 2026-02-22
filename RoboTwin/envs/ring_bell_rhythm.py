@@ -17,9 +17,9 @@ class ring_bell_rhythm(Base_Task):
         super()._init_task_env_(**kwags)
 
         self.info["info"] = {
-            "task": "ring_bell_rhythm",
-            "{a}": "right",
-            "{A}": "050_bell/base1"
+            "{b}": "right",
+            "{A}": "050_bell/base1",
+            "{B}": "the table"
         }
 
     def load_actors(self):
@@ -133,7 +133,6 @@ class ring_bell_rhythm(Base_Task):
     def play_once(self):
         flushed_print("开始环境演示...")
         arm_R = ArmTag("right")
-        robot_ee_quat = [0.707, 0.707, 0.0, 0.0]  # 指向上方
 
         press_pre = self.get_grasp_pose(self.bell, pre_dis=0.1, contact_point_id=0, arm_tag=arm_R)
         if press_pre:
