@@ -69,7 +69,8 @@ class stamp_seal_cycled(Base_Task):
 
         # set seal
         self.config_seal = {
-            "pos": [0.2, -0.1, base_table_height + 0.1],
+            # "pos": [0.2, -0.1, base_table_height + 0.1],
+            "pos": [np.random.uniform(0.2, 0.3), np.random.uniform(-0.3, -0.1), base_table_height + 0.1],
             "quat": [0.707, 0.707, 0, 0] # 指向上方
         }
         self.seal = create_actor(
@@ -83,10 +84,13 @@ class stamp_seal_cycled(Base_Task):
 
         # 初始化状态追踪
         self.full_sequence = self.pad_sequence * 2  # 完整序列 (2次循环)
-        self.current_step_idx = 0  # 当前需要盖章的序列索引 (0 ~ 11)
-        self.is_contacting = False # 当前接触状态 (防止重复计数)
+        self.stage_id = 0  # 当前需要盖章的序列索引 (0 ~ 11)
+        self.stamp_flag = False # 目前是否正在压着垫子
+        self.last_stamped_pad = -1 # 记录上一个合法压下的垫子索引，防拖拽
         self.stamp_z_threshold = 0.02 # 接触判定的 Z 轴高度差阈值
         self.stamp_xy_threshold = 0.04 # 接触判定的 XY 平面距离阈值
+        self.fail_flag = False # 记录是否因为盖错顺序/拖拽等投机行为而任务失败
+        self.max_reward = 0.0
         
         # 防止重复打印总体成功
         self.final_success_printed = False
@@ -209,59 +213,110 @@ class stamp_seal_cycled(Base_Task):
 
             flushed_print(f"\n=== 已完成第 {i+1} 次完整盖章循环演示 ===")
 
+        # put the seal back to the initial position and move the grasp back
+        self.move(self.move_to_pose(arm_R, sapien.Pose(
+                    np.array(self.config_seal["pos"]) + [0.0, 0.0, 0.245], 
+                    robot_ee_quat
+                )))
+        self.move(self.move_by_displacement(arm_R, z=-0.16))
+        self.move(self.open_gripper(arm_tag=arm_R))
+        self.move(self.back_to_origin(arm_tag=arm_R))
+
         flushed_print("\n环境演示结束。")
         return self.info
 
-    def check_success(self):
-        # 防止初始化前检查
-        if not hasattr(self, 'seal') or not hasattr(self, 'full_sequence'):
-            return False
-
-        # 如果已经完成全部任务
-        if self.current_step_idx >= len(self.full_sequence):
-            if not self.final_success_printed:
-                flushed_print("\n✓ 任务成功：已完成两次完整盖章循环 (12次盖章)。")
-                self.final_success_printed = True
-            return True
-
-        # 获取当前目标垫子
-        # 序列存储的是 1-based index (1-6)，pads 列表是 0-based
-        target_pad_num = self.full_sequence[self.current_step_idx]
-        target_pad = self.pads[target_pad_num - 1]
-        
+    def check_stamp_pressed(self, pad_id, z_threshold=0.03, xy_threshold=0.03):
         seal_pos = self.seal.get_pose().p
-        pad_pos = target_pad.get_pose().p
-        
-        # 计算距离
+        pad_pos = self.pads[pad_id].get_pose().p
         xy_dist = np.linalg.norm(seal_pos[:2] - pad_pos[:2])
         z_dist = abs(seal_pos[2] - pad_pos[2])
-        
-        # 判定是否"接触"：XY接近 且 Z高度差很小 (印章底部接触垫子)
-        # 印章通常本身有一定高度，这里我们监控 seal actor 的原点与 pad 原点的距离
-        # 假设印章是一个圆柱体，原点在几何中心或底部。从 play_once 的逻辑看，0.004 是判定阈值
-        is_touching = (xy_dist < self.stamp_xy_threshold) and (z_dist < 0.05) 
-        # 注意: z_dist < 0.05 是比较宽的，因为 seal 原点可能在中心。play_once 中是根据差值判定的
-        # 更精确的方式是使用物理碰撞检测，或者根据实际模型尺寸调整 Z 阈值
-        # 这里为了演示稳定性，使用位姿判定
-        
-        if is_touching:
-            if not self.is_contacting:
-                # 刚接触到 (Falling edge -> Rising edge)
-                self.is_contacting = True
-                flushed_print(f"✓ 检测到盖章动作：垫子 {target_pad_num} (进度: {self.current_step_idx + 1}/{len(self.full_sequence)})")
-                self.current_step_idx += 1
-        else:
-            if self.is_contacting:
-                # 刚离开 (Rising edge -> Falling edge)
-                self.is_contacting = False # 重置，准备下一次接触
+        if (xy_dist < xy_threshold) and (z_dist < z_threshold):
+            return True
+        return False
 
-        # 总体检查
-        if self.current_step_idx >= len(self.full_sequence):
-             if not self.final_success_printed:
-                flushed_print("\n✓ 任务成功：已完成两次完整盖章循环 (12次盖章)。")
-                self.final_success_printed = True
-             return True
-             
+    def update_stamp_reset(self, safe_z_threshold=0.08):
+        seal_pos = self.seal.get_pose().p
+        is_lifted = True
+        for pad in self.pads:
+            pad_pos = pad.get_pose().p
+            if abs(seal_pos[2] - pad_pos[2]) < safe_z_threshold:
+                is_lifted = False
+                break
+        if is_lifted:
+            self.stamp_flag = False
+
+    def check_success(self):
+        # 0. 生命周期保护：确保在 load_actors 执行后才运行逻辑
+        if not hasattr(self, 'stage_id') or not hasattr(self, 'full_sequence') or not hasattr(self, 'seal'):
+            return False
+
+        # 1. 永久失败检查
+        if getattr(self, 'fail_flag', False):
+            return False
+            
+        # ---------- 修正后的逻辑顺序 ----------
+        # 1. 更新抬起状态 (磁滞区间机制)
+        self.update_stamp_reset()
+
+        # 2. 检查：是否已经在最后阶段，且发生“画蛇添足”（越界多盖）
+        if self.stage_id == len(self.full_sequence):
+            for i in range(6):
+                # 如果检测到此时又压在了任何一个垫子上
+                if self.check_stamp_pressed(i) and not self.stamp_flag:
+                    flushed_print(f"❌ 失败：画蛇添足！要求盖章 {len(self.full_sequence)} 次，实际却检测到了多余的盖章。")
+                    self.fail_flag = True
+                    return False
+
+            # 如果没有乱压垫子，此时检查是否印章已经放回原位
+            seal_pos = self.seal.get_pose().p
+            init_pos = np.array(self.config_seal["pos"])
+            seal_xy_dist = np.linalg.norm(seal_pos[:2] - init_pos[:2])
+            seal_z = seal_pos[2]
+            
+            is_seal_returned = (seal_xy_dist < 0.05) and (seal_z < 0.76)
+            
+            if is_seal_returned:
+                if hasattr(self, 'max_reward'):
+                    self.max_reward = max(self.max_reward, 1.0)
+                if not getattr(self, 'final_success_printed', False):
+                    flushed_print("\n✓ 任务成功：已完成两次完整盖章循环 (12次有效规则盖章)。")
+                    self.final_success_printed = True
+                return True
+            else:
+                return False # 还在返回途中或未进行下一步
+        
+        elif self.stage_id > len(self.full_sequence):
+            self.fail_flag = True
+            return False
+
+        # 计算当前步对应的目标
+        expected_pad_num = self.full_sequence[self.stage_id]
+        expected_pad_id = expected_pad_num - 1 
+
+        # 5. 正确动作判定
+        if self.check_stamp_pressed(expected_pad_id) and not self.stamp_flag:
+            flushed_print(f"✓ 正确：检测到盖章动作 垫子 {expected_pad_num} (进度: {self.stage_id + 1}/{len(self.full_sequence)})")
+            self.stamp_flag = True 
+            self.last_stamped_pad = expected_pad_id # 记录锚点，防拖拽
+            self.stage_id += 1     
+            return False           
+
+        # 6. 防乱盖与防贴地拖拽监控
+        for i in range(6):
+            if self.check_stamp_pressed(i):
+                if self.stamp_flag:
+                    # 如果没抬起来就滑到了别的垫子上，视为拖拽作弊
+                    if i != getattr(self, 'last_stamped_pad', -1):
+                        flushed_print(f"❌ 失败：检测到拖拽或未充分抬起动作！违规触碰垫子 {i + 1}")
+                        self.fail_flag = True
+                        return False
+                else:
+                    # 如果已经抬起，但重新压下的不是目标垫子，视为盖错顺序
+                    # (由于正确的已经在第4步拦截了，这里捕获的必定是错的)
+                    flushed_print(f"❌ 失败：按错了垫子顺序！实际触碰 {i + 1}")
+                    self.fail_flag = True
+                    return False
+
         return False
 
 if __name__ == "__main__":
