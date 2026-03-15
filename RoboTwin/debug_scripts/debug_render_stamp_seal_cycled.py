@@ -43,7 +43,7 @@ def main():
              "wrist_camera_type": "D435",
              "collect_wrist_camera": True
         },
-        "render_freq": 1
+        "render_freq": 15
     }
 
     print("Initializing environment...")

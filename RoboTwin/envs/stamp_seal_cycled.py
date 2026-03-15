@@ -42,13 +42,17 @@ class stamp_seal_cycled(Base_Task):
         1 2 3 
         4 5 6 
         """
+        # 加入整体位移随机化
+        pad_offset_x = np.random.uniform(-0.02, 0.02)
+        pad_offset_y = np.random.uniform(-0.02, 0.02)
+
         self.config_pad = [
-            [-0.04, -0.10, pad_z],
-            [0.04, -0.10, pad_z],
-            [0.12, -0.10, pad_z],
-            [-0.04, -0.18, pad_z],
-            [0.04, -0.18, pad_z],
-            [0.12, -0.18, pad_z]
+            [-0.04 + pad_offset_x, -0.10 + pad_offset_y, pad_z],
+            [0.04 + pad_offset_x, -0.10 + pad_offset_y, pad_z],
+            [0.12 + pad_offset_x, -0.10 + pad_offset_y, pad_z],
+            [-0.04 + pad_offset_x, -0.18 + pad_offset_y, pad_z],
+            [0.04 + pad_offset_x, -0.18 + pad_offset_y, pad_z],
+            [0.12 + pad_offset_x, -0.18 + pad_offset_y, pad_z]
         ]
         pad_colors = [
             [1, 0, 0, 1],  # red
