@@ -45,6 +45,21 @@ class catch_bottle_and_shake(Base_Task):
             is_static=False
         )
 
+        # 判定阈值初始化
+        self.catch_z_threshold = 0.85   # 抓取成功判定的 Z 轴底线
+        self.drop_z_threshold  = 0.80   # 视为掉落的 Z 轴高度阈值
+        self.max_xy_displacement = 0.05 # 允许的最大水平位移
+
+        # 记录瓶子初始XY以做位移检测
+        self.init_bottle_x = rand_x
+        self.init_bottle_y = rand_y
+
+        # ---- 新增：状态机初始化 ----
+        self.stage_id = 0           # 0: 抓取, 1: 摇晃第1次, 2: 摇晃第2次, 3: 摇晃第3次, 4: 机械臂复位
+        self.total_stages = 5
+        self.fail_flag = False      # 永久失败标志
+        self.max_reward = 0.0       # 记录最大奖励
+
         # 成功标志
         self.catch_success = False
         self.shake_count = 0        # 有效摇晃次数
@@ -155,7 +170,7 @@ class catch_bottle_and_shake(Base_Task):
         return True
     
     def play_once(self):
-        flushed_print("执行 '放回方块' 任务序列（三次循环）...")
+        flushed_print("执行 '抓起瓶子并摇晃' 任务序列（三次循环）...")
 
         # 稳定性检测已通过，将瓶子阻尼重置为正常水平，恢复真实物理
         if hasattr(self, 'bottle_rigid') and self.bottle_rigid is not None:
@@ -186,39 +201,95 @@ class catch_bottle_and_shake(Base_Task):
             flushed_print(f"第 {cycle + 1} 次循环动作完成")
         
         # move the arm back
-        # self.move(self.back_to_origin(arm_R))
+        flushed_print("步骤 3: 移动机械臂回原点")
+        self.move(self.move_by_displacement(arm_R, z=-0.1))
+        self.move(self.open_gripper(arm_R))
+        self.move(self.move_by_displacement(arm_R, y=-0.05))
+        self.move(self.back_to_origin(arm_R))
 
         return self.info
 
+    def _is_right_arm_reset(self):
+        """检查右臂是否已复位"""
+        right_ee = np.array(self.robot.get_right_ee_pose()[:3])
+        right_origin = np.array(self.robot.right_original_pose[:3])
+        reset_threshold = 0.08  # 单位：米
+        return np.linalg.norm(right_ee - right_origin) < reset_threshold and self.is_right_gripper_open()
+
     def check_success(self):
-        # 防止在初始化完成前检查
-        if not hasattr(self, 'bottle'):
+        # 0. 生命周期保护：确保在 load_actors 执行后且状态机参数存在才运行逻辑 (新增)
+        if not hasattr(self, 'stage_id') or not hasattr(self, 'bottle'):
             return False
 
-        # --- 第一步：检测抓取（需连续多帧保持高度，防止碰撞弹起误判）---
-        current_z = self.bottle.get_pose().p[2]
-        
-        if not self.catch_success:
-            if current_z > 0.85:
+        # 1. 永久失败检查 (新增)
+        if getattr(self, 'fail_flag', False):
+            return False
+            
+        # 2. 已完成所有阶段：防"画蛇添足"与最终成功返回 (新增)
+        if self.stage_id == self.total_stages:
+            if hasattr(self, 'max_reward'):
+                self.max_reward = max(self.max_reward, 1.0)
+            if not getattr(self, 'final_success_printed', False):
+                flushed_print(f"\n✓ 任务整体成功！(抓取: 成功, 摇晃计数: {self.shake_count})")
+                self.final_success_printed = True
+            return True
+        elif self.stage_id > self.total_stages:
+            self.fail_flag = True
+            return False
+
+        # 实时获取瓶子位姿
+        current_pose = self.bottle.get_pose().p
+        current_x, current_y, current_z = current_pose[0], current_pose[1], current_pose[2]
+
+        # === 新增：检测过程中瓶子的水平位移 ===
+        if self.stage_id >= 1:
+            xy_dist = np.linalg.norm([current_x - self.init_bottle_x, current_y - self.init_bottle_y])
+            if xy_dist >= self.max_xy_displacement:
+                flushed_print(f"❌ 失败：瓶子在任务中水平位移过大 (当前位移: {xy_dist:.3f} >= {self.max_xy_displacement})")
+                self.fail_flag = True
+                return False
+
+        # 3. 阶段 0：检测抓取（需连续多帧保持高度，防止碰撞弹起误判） (修改为基于 stage_id)
+        if self.stage_id == 0:
+            if current_z > self.catch_z_threshold:
                 self.catch_height_counter += 1
                 if self.catch_height_counter >= self.catch_height_frames:
                     self.catch_success = True
-                    flushed_print(f"✓ 瓶子抓取成功 (持续 {self.catch_height_frames} 帧高度检测触发)")
+                    flushed_print(f"✓ 阶段 {self.stage_id} 通过：瓶子抓取成功 (持续 {self.catch_height_frames} 帧高度检测触发)")
                     self.is_holding = True
+                    self.stage_id += 1
+                    if hasattr(self, 'max_reward'):
+                        self.max_reward = max(self.max_reward, self.stage_id / float(self.total_stages))
+                    # 抓取成功后，重置极值为当前高度 (新增)
+                    self.peak_z = current_z
+                    self.valley_z = current_z
             else:
                 # 高度不足，重置计数器（必须连续满足才算）
                 if self.catch_height_counter > 0:
                     flushed_print(f"  抓取检测重置 (高度不足，曾连续 {self.catch_height_counter} 帧，当前 z={current_z:.3f})")
                 self.catch_height_counter = 0
+            
+            return False
 
-        # --- 第二步：检测摇晃 (使用简单峰谷检测) ---
-        if self.catch_success:
+        # 4. 阶段 1~3：检测摇晃 (使用简单峰谷检测) (修改为基于 stage_id)
+        elif 1 <= self.stage_id <= 3:
+            # 失败判断：在未完成所有摇晃前，瓶子掉落 / 被放下视为永久失败
+            if current_z < self.drop_z_threshold:
+                flushed_print(f"❌ 失败：未完成目标摇晃次数前，瓶子掉落或被放下！(当前仅摇晃 {self.shake_count} 次)")
+                self.fail_flag = True
+                return False
+                
+            # 检测少摇但机械臂提前跑路
+            if self._is_right_arm_reset() or self.is_right_gripper_open():
+                flushed_print(f"❌ 失败：摇晃次数不足！要求 {self.required_shakes} 次，实际只完成了 {self.shake_count} 次并提前松手/复位。")
+                self.fail_flag = True
+                return False
+
             # 实时更新极值
             if current_z > self.peak_z: self.peak_z = current_z
             if current_z < self.valley_z: self.valley_z = current_z
             
             # 状态机：IDLE -> UP -> DOWN -> UP ...
-            
             # 检测向上运动完成 (从低点上升了足够距离)
             if self.shake_state == "DOWN" or self.shake_state == "IDLE":
                 if current_z > self.valley_z + self.move_threshold:
@@ -232,18 +303,38 @@ class catch_bottle_and_shake(Base_Task):
                     self.shake_state = "DOWN"
                     self.valley_z = current_z
                     self.shake_count += 1
-                    flushed_print(f"检测到有效摇晃动作！(当前累计: {self.shake_count} 次半周期)")
+                    
+                    self.stage_id += 1
+                    if hasattr(self, 'max_reward'):
+                        self.max_reward = max(self.max_reward, self.stage_id / float(self.total_stages))
+                        
+                    flushed_print(f"✓ 阶段 {self.stage_id - 1} 通过：检测到有效摇晃动作！(当前累计: {self.shake_count} 次完整周期)")
 
-        # 总体成功判定
-        # 每次循环完成一次"下摇"动作，计入一次半周期
-        # 3次循环至少会产生 3 次记录
-        overall_success = self.catch_success and (self.shake_count >= 3)
+        # 5. 阶段 4：防多摇 与 检测机械爪复位
+        elif self.stage_id == 4:
+            # 防多摇：只有在机械爪闭合时（抓着瓶子）才算多摇，防止撒手掉落被误判为一次向下的摇晃
+            if not self.is_right_gripper_open():
+                if current_z > self.peak_z: self.peak_z = current_z
+                if current_z < self.valley_z: self.valley_z = current_z
+                
+                if self.shake_state == "DOWN" or self.shake_state == "IDLE":
+                    if current_z > self.valley_z + self.move_threshold:
+                        self.shake_state = "UP"
+                        self.peak_z = current_z
+                elif self.shake_state == "UP":
+                    if current_z < self.peak_z - self.move_threshold:
+                        flushed_print(f"❌ 失败：多摇了！要求摇晃 {self.required_shakes} 次，实际检测到了多余的摇晃动作。")
+                        self.fail_flag = True
+                        return False
+            
+            # 检测复位，由于允许放下，所以在此阶段不做 current_z < 0.80 的阻断
+            if self._is_right_arm_reset():
+                flushed_print(f"✓ 阶段 {self.stage_id} 通过：右臂已复位")
+                self.stage_id += 1
+                if hasattr(self, 'max_reward'):
+                    self.max_reward = max(self.max_reward, self.stage_id / float(self.total_stages))
         
-        if overall_success and not self.final_success_printed:
-            flushed_print(f"\n✓ 任务整体成功！(抓取: 成功, 摇晃计数: {self.shake_count})")
-            self.final_success_printed = True
-        
-        return overall_success
+        return False
 
         
 if __name__ == "__main__":
